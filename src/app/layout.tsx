@@ -18,9 +18,9 @@ const fontMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LEXA AI — Định hướng nghề nghiệp cho học sinh Việt Nam",
+  title: "LEXA AI — Hệ sinh thái học tập & phát triển tương lai",
   description:
-    "Nền tảng AI hỗ trợ khám phá bản thân, định hướng nghề nghiệp, luyện tập và tư vấn học tập cho học sinh Việt Nam.",
+    "Nền tảng AI toàn diện cho học sinh Việt Nam: khám phá bản thân, định hướng nghề nghiệp, trợ lý học tập, luyện tập và dịch thuật — tất cả trong một hệ sinh thái.",
   icons: {
     icon: LEXA_LOGO_URL,
     apple: LEXA_LOGO_URL,

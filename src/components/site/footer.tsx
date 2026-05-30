@@ -11,20 +11,21 @@ export function Footer() {
               LEXA AI
             </div>
             <p className="mt-2 max-w-md text-sm leading-6 text-slate-600 dark:text-white/60">
-              Trải nghiệm định hướng nghề nghiệp hiện đại cho học sinh Việt Nam:
-              bài test, thư viện nghề, chatbot tư vấn và luyện tập thông minh.
+              Hệ sinh thái học tập và phát triển tương lai dành cho học sinh Việt Nam —
+              khám phá bản thân, học tập thông minh và định hướng nghề nghiệp trên một
+              nền tảng duy nhất.
             </p>
           </div>
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/70">
-              Sản phẩm
+              Module hệ sinh thái
             </div>
             <div className="mt-3 grid gap-2 text-sm">
               <Link className="text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white" href="/test">
-                AI Career Test
+                Bài test
               </Link>
               <Link className="text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white" href="/library">
-                Career Library
+                Thư viện nghề
               </Link>
               <Link className="text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white" href="/chat">
                 Trợ lý học tập AI
@@ -33,7 +34,7 @@ export function Footer() {
                 AI Dịch thuật
               </Link>
               <Link className="text-slate-600 hover:text-slate-900 dark:text-white/60 dark:hover:text-white" href="/practice">
-                Practice Generator
+                Luyện tập
               </Link>
             </div>
           </div>
@@ -57,10 +58,9 @@ export function Footer() {
 
         <div className="mt-10 flex flex-col gap-2 border-t border-slate-200 pt-6 text-xs text-slate-500 dark:border-white/10 dark:text-white/50 sm:flex-row sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} LEXA AI. All rights reserved.</span>
-          <span>UI MVP (frontend-first). Backend sẽ bổ sung sau.</span>
+          <span>Đồng hành cùng học sinh Việt Nam trên hành trình phát triển.</span>
         </div>
       </Container>
     </footer>
   );
 }
-

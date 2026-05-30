@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "clean": "node scripts/clean-next.mjs",
+    "logo:fix": "node scripts/remove-logo-bg.mjs",
     "dev": "cross-env NEXT_DISABLE_FILE_SYSTEM_CACHE=1 next dev",
     "dev:fresh": "node scripts/clean-next.mjs && cross-env NEXT_DISABLE_FILE_SYSTEM_CACHE=1 next dev",
     "build": "next build",
@@ -30,6 +31,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

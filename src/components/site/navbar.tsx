@@ -60,10 +60,12 @@ export function Navbar() {
       />
       <Container className="relative">
         <div className="flex h-16 items-center justify-between gap-2 sm:h-[4.25rem]">
-          <Logo size="sm" className="min-w-0 max-w-[58%] sm:hidden" />
-          <Logo size="md" className="hidden min-w-0 sm:inline-flex" />
+          <Logo className="min-w-0 max-w-[58%] sm:max-w-none" />
 
-          <nav className="hidden items-center gap-0.5 md:flex">
+          <nav
+            className="hidden items-center gap-0.5 md:flex"
+            aria-label="Module hệ sinh thái LEXA AI"
+          >
             {navItems.map((item) => {
               const active = pathname === item.href;
               const Icon = item.icon;
@@ -123,6 +125,9 @@ export function Navbar() {
         {open ? (
           <div className="pb-3 md:hidden">
             <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-black/50 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+              <p className="px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-white/45">
+                Module hệ sinh thái
+              </p>
               <div className="flex flex-col">
                 {navItems.map((item) => {
                   const active = pathname === item.href;

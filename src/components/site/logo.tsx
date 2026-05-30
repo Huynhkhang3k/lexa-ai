@@ -10,8 +10,8 @@ type LogoProps = {
 };
 
 const sizes = {
-  sm: { px: 116, overlap: 28, title: "text-base", sub: "text-[8px]" },
-  md: { px: 148, overlap: 36, title: "text-lg sm:text-xl", sub: "text-[9px]" },
+  sm: { px: 116, overlap: 28, title: "text-base sm:text-lg", sub: "text-[8px] sm:text-[9px]" },
+  md: { px: 148, overlap: 36, title: "text-base sm:text-lg md:text-xl", sub: "text-[8px] sm:text-[9px]" },
 } as const;
 
 export function Logo({ className, showText = true, size = "md" }: LogoProps) {
@@ -70,7 +70,7 @@ export function Logo({ className, showText = true, size = "md" }: LogoProps) {
                 s.sub,
               )}
             >
-              Career Guidance
+              HỆ SINH THÁI
             </span>
           </span>
         ) : null}

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, GraduationCap, Loader2, Sparkles } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ type ResultData = {
 };
 
 export default function TestPage() {
-  const { gradeLevel, ready } = useGradeLevel();
+  const { gradeLevel, ready, openPicker } = useGradeLevel();
   const [step, setStep] = React.useState(0);
   const [history, setHistory] = React.useState<Answer[]>([]);
   const [current, setCurrent] = React.useState<QuestionData | null>(null);
@@ -184,10 +184,29 @@ export default function TestPage() {
     setError(null);
   }
 
-  if (!ready || !gradeLevel) {
+  if (!ready) {
     return (
       <Container className="flex min-h-[40vh] items-center justify-center py-14">
-        <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-sky-600 dark:text-cyan-300" />
+      </Container>
+    );
+  }
+
+  if (!gradeLevel) {
+    return (
+      <Container className="py-10 sm:py-14">
+        <div className="mx-auto max-w-lg rounded-3xl border border-slate-200/80 bg-white/90 p-8 text-center dark:border-white/10 dark:bg-white/[0.04]">
+          <GraduationCap className="mx-auto h-10 w-10 text-sky-600 dark:text-cyan-300" />
+          <h1 className="mt-4 text-xl font-semibold text-slate-900 dark:text-white">
+            Chọn khối lớp để bắt đầu bài test
+          </h1>
+          <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
+            Hộp thoại chọn khối lớp sẽ hiện trên màn hình. Nếu không thấy, bấm nút bên dưới.
+          </p>
+          <Button variant="primary" size="md" className="mt-6" onClick={() => openPicker()}>
+            Chọn khối lớp
+          </Button>
+        </div>
       </Container>
     );
   }

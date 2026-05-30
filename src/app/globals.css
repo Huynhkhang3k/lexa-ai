@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@source "../components/**/*.{js,ts,jsx,tsx}";
+@source "../context/**/*.{js,ts,jsx,tsx}";
+@source "./**/*.{js,ts,jsx,tsx}";
+
 /* Tailwind v4: dark mode theo class trên <html> (next-themes) */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -24,8 +28,6 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
 }
 
 body {
