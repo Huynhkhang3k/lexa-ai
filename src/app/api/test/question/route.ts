@@ -7,7 +7,26 @@ import {
   SCHOOL_QUESTION_COUNT,
   TOTAL_QUESTIONS,
 } from "@/lib/test-questions";
+import type { TraitId } from "@/lib/test-scoring";
 
+const VALID_TRAITS = new Set<TraitId>([
+  "logic",
+  "tech",
+  "math",
+  "creative",
+  "art",
+  "design",
+  "communication",
+  "leadership",
+  "business",
+  "social",
+  "practical",
+]);
+
+function normalizeTraits(raw: unknown): TraitId[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((t): t is TraitId => typeof t === "string" && VALID_TRAITS.has(t as TraitId));
+}
 export const runtime = "nodejs";
 
 type Answer = {
@@ -87,12 +106,14 @@ Trả về JSON:
 {
   "question": "nội dung câu hỏi",
   "options": [
-    { "id": "a", "label": "..." },
-    { "id": "b", "label": "..." },
-    { "id": "c", "label": "..." },
-    { "id": "d", "label": "..." }
+    { "id": "a", "label": "...", "traits": ["logic"] },
+    { "id": "b", "label": "...", "traits": ["creative", "art"] },
+    { "id": "c", "label": "...", "traits": ["communication"] },
+    { "id": "d", "label": "...", "traits": ["tech", "logic"] }
   ]
-}`;
+}
+
+Mỗi option phải có traits (1-2 từ): logic, tech, math, creative, art, design, communication, leadership, business, social, practical.`;
 
     let data: QuestionPayload;
     try {
@@ -114,9 +135,12 @@ Trả về JSON:
       questionIndex: index,
       total: TOTAL_QUESTIONS,
       question: data.question,
-      options: data.options.slice(0, 4),
-    });
-  } catch (e) {
+      options: data.options.slice(0, 4).map((o) => ({
+        id: o.id,
+        label: o.label,
+        traits: normalizeTraits((o as { traits?: unknown }).traits),
+      })),
+    });  } catch (e) {
     const msg = e instanceof Error ? e.message : "Lỗi không xác định";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

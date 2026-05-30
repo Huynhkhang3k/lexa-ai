@@ -1,3 +1,6 @@
+"use client";
+
+import * as React from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -11,12 +14,14 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { SectionHeading } from "./section-heading";
-import { CAREER_PREVIEW_DEMO } from "@/lib/landing-data";
+import { CAREERS, getCareerById } from "@/lib/careers";
+import { getCareerTechnologies } from "@/lib/career-tech";
+import { getUserProfile, hasCompletedAssessment } from "@/lib/user-profile";
 
 const INFO_ROWS = [
   { key: "description", label: "Mô tả", icon: BookOpen },
   { key: "averageSalary", label: "Mức lương tham khảo", icon: DollarSign },
-  { key: "outlook", label: "Triển vọng tương lai", icon: TrendingUp },
+  { key: "outlook", label: "Triển vọng nghề nghiệp", icon: TrendingUp, fromOpportunities: true },
   { key: "skills", label: "Kỹ năng cần thiết", icon: Wrench, isList: true },
   { key: "relatedSubjects", label: "Môn học liên quan", icon: GraduationCap, isList: true },
   { key: "studyPath", label: "Lộ trình học tập", icon: Sparkles },
@@ -24,14 +29,42 @@ const INFO_ROWS = [
 ] as const;
 
 export function CareerPreviewSection() {
-  const career = CAREER_PREVIEW_DEMO;
+  const [profile, setProfile] = React.useState(getUserProfile);
+
+  React.useEffect(() => {
+    const refresh = () => setProfile(getUserProfile());
+    window.addEventListener("lexa-profile-updated", refresh);
+    return () => window.removeEventListener("lexa-profile-updated", refresh);
+  }, []);
+
+  const careerId =
+    profile.targetCareer?.id ??
+    profile.suggestedCareers?.[0]?.id ??
+    (hasCompletedAssessment() ? undefined : "ai-eng");
+
+  const base = careerId ? getCareerById(careerId) : CAREERS[0];
+  const career = base
+    ? {
+        ...base,
+        technologies: getCareerTechnologies(base.id, base.skills),
+        outlook: base.opportunities.join(" · "),
+      }
+    : null;
+
+  if (!career) return null;
+
+  const subtitle = profile.targetCareer
+    ? "Nghề mục tiêu bạn đã chọn — thông tin chi tiết từ thư viện LEXA."
+    : profile.suggestedCareers?.[0]
+      ? "Preview nghề phù hợp nhất từ kết quả đánh giá của bạn."
+      : "Xem trước cấu trúc thông tin mỗi nghề trong thư viện LEXA.";
 
   return (
     <section id="careers">
       <SectionHeading
         eyebrow="Thư viện nghề nghiệp"
         title="Mỗi nghề — một bức tranh đầy đủ"
-        description="Không chỉ tên nghề. LEXA cung cấp lương, kỹ năng, môn học, lộ trình và công nghệ — giúp bạn quyết định có căn cứ."
+        description={subtitle}
       />
 
       <Card className="mt-8 overflow-hidden border-slate-200/80 dark:border-white/10">
@@ -50,7 +83,7 @@ export function CareerPreviewSection() {
               </div>
               <p className="mt-1 text-sm text-slate-600 dark:text-white/60">{career.tagline}</p>
             </div>
-            <ButtonLink href="/library" variant="secondary" size="sm">
+            <ButtonLink href={`/library?career=${career.id}`} variant="secondary" size="sm">
               Xem 60+ nghề <ArrowRight className="h-3.5 w-3.5" />
             </ButtonLink>
           </div>
@@ -58,7 +91,14 @@ export function CareerPreviewSection() {
 
         <CardContent className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
           {INFO_ROWS.map((row) => {
-            const value = career[row.key as keyof typeof career];
+            let value: string | string[] | undefined;
+            if ("fromOpportunities" in row && row.fromOpportunities) {
+              value = career.outlook;
+            } else if (row.key === "technologies") {
+              value = career.technologies;
+            } else {
+              value = career[row.key as keyof typeof career] as string | string[];
+            }
             const Icon = row.icon;
             return (
               <div

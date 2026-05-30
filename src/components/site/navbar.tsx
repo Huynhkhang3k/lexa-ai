@@ -3,14 +3,17 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import {
   BookOpen,
   ClipboardList,
-  GraduationCap,
   Languages,
+  LogIn,
+  LogOut,
   Menu,
   MessageCircle,
   PenLine,
+  User,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,7 +21,7 @@ import { Container } from "@/components/ui/container";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
-import { useGradeLevel, gradeLevelLabel } from "@/context/grade-level-context";
+import { useGradeLevel } from "@/context/grade-level-context";
 
 const navItems = [
   { href: "/test", label: "Bài test", icon: ClipboardList },
@@ -31,7 +34,9 @@ const navItems = [
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
-  const { gradeLevel, openPicker } = useGradeLevel();
+  const { openPicker } = useGradeLevel();
+  const { data: session, status } = useSession();
+  const isAuthed = status === "authenticated" && session?.user;
 
   return (
     <header className="sticky top-0 z-50">
@@ -89,18 +94,38 @@ export function Navbar() {
           </nav>
 
           <div className="flex shrink-0 items-center gap-2">
-            {gradeLevel ? (
-              <button
-                type="button"
-                onClick={openPicker}
-                className="hidden items-center gap-1.5 rounded-xl border border-slate-200 bg-white/80 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 sm:inline-flex dark:border-white/12 dark:bg-white/8 dark:text-white/80 dark:hover:border-cyan-400/40"
-                title="Đổi khối lớp"
-              >
-                <GraduationCap className="h-3.5 w-3.5 text-sky-600 dark:text-cyan-300" />
-                {gradeLevelLabel(gradeLevel)}
-              </button>
-            ) : null}
             <ThemeToggle />
+            {isAuthed ? (
+              <div className="hidden items-center gap-2 sm:flex">
+                <button
+                  type="button"
+                  onClick={openPicker}
+                  className="max-w-[120px] truncate text-xs text-slate-600 hover:text-sky-700 dark:text-white/65 dark:hover:text-cyan-300"
+                  title="Đổi khối lớp"
+                >
+                  {session.user.name ?? session.user.email}
+                </button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  aria-label="Đăng xuất"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <ButtonLink
+                href="/login"
+                variant="secondary"
+                size="sm"
+                className="hidden sm:inline-flex"
+              >
+                <LogIn className="h-4 w-4" />
+                Đăng nhập
+              </ButtonLink>
+            )}
             <ButtonLink
               href="/test"
               variant="primary"
@@ -149,7 +174,28 @@ export function Navbar() {
                     </Link>
                   );
                 })}
-                <div className="px-2 py-2">
+                <div className="px-2 py-2 space-y-2">
+                  {isAuthed ? (
+                    <div className="flex items-center justify-between rounded-xl border border-slate-200/80 px-3 py-2 dark:border-white/10">
+                      <span className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/80">
+                        <User className="h-4 w-4" />
+                        {session.user.name ?? session.user.email}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => signOut({ callbackUrl: "/" })}
+                      >
+                        <LogOut className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <ButtonLink href="/login" variant="secondary" className="w-full">
+                      <LogIn className="h-4 w-4" />
+                      Đăng nhập
+                    </ButtonLink>
+                  )}
                   <ButtonLink href="/test" className="w-full" size="md">
                     Bắt đầu ngay
                   </ButtonLink>

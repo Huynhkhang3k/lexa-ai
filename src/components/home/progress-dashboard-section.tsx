@@ -1,75 +1,76 @@
 "use client";
 
-import { motion } from "framer-motion";
+import * as React from "react";
 import { BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { SectionHeading } from "./section-heading";
-import { PROGRESS_METRICS } from "@/lib/landing-data";
+import { computeProgressMetrics } from "@/lib/user-profile";
 
 export function ProgressDashboardSection() {
-  const overall = Math.round(
-    PROGRESS_METRICS.reduce((sum, m) => sum + m.value, 0) / PROGRESS_METRICS.length,
-  );
+  const [metrics, setMetrics] = React.useState(computeProgressMetrics);
+
+  React.useEffect(() => {
+    const refresh = () => setMetrics(computeProgressMetrics());
+    window.addEventListener("lexa-profile-updated", refresh);
+    window.addEventListener("lexa-activity-updated", refresh);
+    return () => {
+      window.removeEventListener("lexa-profile-updated", refresh);
+      window.removeEventListener("lexa-activity-updated", refresh);
+    };
+  }, []);
+
+  const overall = Math.round(metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length);
+  const isEmpty = overall === 0;
 
   return (
     <section id="progress" className="scroll-mt-24">
       <SectionHeading
-        eyebrow="Lý do quay lại"
-        title="Theo dõi hành trình phát triển"
-        description="LEXA không phải công cụ dùng một lần — bạn theo dõi tiến độ, hoàn thiện từng mục tiêu và xây dựng tương lai theo thời gian."
+        eyebrow="Theo dõi tiến trình"
+        title="Hành trình phát triển của bạn"
+        description="Tiến độ tính từ đánh giá, khám phá nghề, luyện tập và mục tiêu bạn thiết lập."
       />
 
-      <Card className="mt-8 overflow-hidden border-slate-200/80 dark:border-white/10">
+      <Card className="mt-8 overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 dark:bg-cyan-400/15">
-              <BarChart3 className="h-5 w-5 text-sky-600 dark:text-cyan-300" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                Bảng tiến độ cá nhân
-              </div>
-              <div className="text-xs text-slate-500 dark:text-white/50">
-                Ví dụ minh hoạ — cập nhật theo hoạt động thực tế
-              </div>
+            <BarChart3 className="h-5 w-5 text-sky-600 dark:text-cyan-300" />
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">
+              Bảng tiến độ cá nhân
             </div>
           </div>
-          <div className="text-right">
+          {!isEmpty ? (
             <div className="text-2xl font-bold text-sky-700 dark:text-cyan-300">{overall}%</div>
-            <div className="text-[11px] text-slate-500 dark:text-white/50">Tổng tiến độ</div>
-          </div>
+          ) : null}
         </CardHeader>
 
-        <CardContent className="grid gap-5 p-5 sm:grid-cols-2">
-          {PROGRESS_METRICS.map((metric, i) => (
-            <div key={metric.label}>
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="font-medium text-slate-800 dark:text-white/85">
-                  {metric.label}
-                </span>
-                <span className="font-semibold text-slate-900 dark:text-white">
-                  {metric.value}%
-                </span>
-              </div>
-              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-                <motion.div
-                  className={`h-full rounded-full ${metric.color}`}
-                  initial={{ width: 0 }}
-                  whileInView={{ width: `${metric.value}%` }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.8, delay: i * 0.1, ease: "easeOut" }}
-                />
+        <CardContent className="p-5">
+          {isEmpty ? (
+            <div className="py-6 text-center text-sm text-slate-600 dark:text-white/60">
+              Chưa có dữ liệu. Bắt đầu bài đánh giá để kích hoạt dashboard.
+              <div className="mt-4">
+                <ButtonLink href="/test">Bắt đầu đánh giá</ButtonLink>
               </div>
             </div>
-          ))}
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2">
+              {metrics.map((metric) => (
+                <div key={metric.label}>
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">{metric.label}</span>
+                    <span className="font-semibold">{metric.value}%</span>
+                  </div>
+                  <div className="mt-2 h-2.5 rounded-full bg-slate-200 dark:bg-white/10">
+                    <div
+                      className={`h-full rounded-full ${metric.color}`}
+                      style={{ width: `${metric.value}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
-
-        <div className="border-t border-slate-200/80 px-5 py-4 dark:border-white/10">
-          <ButtonLink href="/test" className="justify-center sm:inline-flex">
-            Bắt đầu theo dõi hành trình của bạn
-          </ButtonLink>
-        </div>
       </Card>
     </section>
   );

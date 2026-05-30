@@ -5,13 +5,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, GraduationCap, Loader2, Sparkles } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { useGradeLevel, gradeLevelLabel } from "@/context/grade-level-context";
+import { useSession } from "next-auth/react";
 import { recordActivity } from "@/lib/user-activity";
+import { profileFromTestSnapshot, saveUserProfile } from "@/lib/user-profile";
+import { buildRoadmap } from "@/lib/roadmap";
+import type { TraitId } from "@/lib/test-scoring";
+import { TRAIT_LABELS } from "@/lib/test-scoring";
 import {
   getSchoolQuestion,
+  inferTraitsFromText,
   TOTAL_QUESTIONS,
   SCHOOL_QUESTION_COUNT,
+  type TestOption,
 } from "@/lib/test-questions";
 
 type Answer = {
@@ -20,23 +27,27 @@ type Answer = {
   selectedId: string;
   selectedLabel: string;
   customText?: string;
+  traits?: TraitId[];
 };
 
 type QuestionData = {
   question: string;
-  options: { id: string; label: string }[];
+  options: TestOption[];
 };
 
 type ResultData = {
   title: string;
   summary: string;
   strengths: string[];
-  careers: { name: string; why: string; matchPercent: number }[];
+  insights: string[];
+  topTraits: TraitId[];
+  careers: { id: string; name: string; why: string; matchPercent: number }[];
   nextSteps: string[];
 };
 
 export default function TestPage() {
   const { gradeLevel, ready, openPicker } = useGradeLevel();
+  const { data: session } = useSession();
   const [step, setStep] = React.useState(0);
   const [history, setHistory] = React.useState<Answer[]>([]);
   const [current, setCurrent] = React.useState<QuestionData | null>(null);
@@ -84,6 +95,7 @@ export default function TestPage() {
               questionIndex: h.questionIndex,
               question: h.question,
               selectedLabel: h.selectedLabel,
+              traits: h.traits,
             })),
           }),
         });
@@ -120,12 +132,21 @@ export default function TestPage() {
       label = opt.label;
     }
 
+    let traits: TraitId[] | undefined;
+    if (useCustom) {
+      traits = inferTraitsFromText(customText.trim());
+    } else {
+      const opt = current.options.find((o) => o.id === selectedId);
+      traits = opt?.traits;
+    }
+
     const answer: Answer = {
       questionIndex: step,
       question: current.question,
       selectedId: useCustom ? "custom" : selectedId!,
       selectedLabel: useCustom ? customText.trim() : label,
       customText: useCustom ? customText.trim() : undefined,
+      traits,
     };
 
     const newHistory = [...history, answer];
@@ -144,16 +165,16 @@ export default function TestPage() {
             history: newHistory.map((h) => ({
               questionIndex: h.questionIndex,
               question: h.question,
-              selectedLabel: h.customText
-                ? `${h.selectedLabel} (tự viết: ${h.customText})`
-                : h.selectedLabel,
+              selectedLabel: h.selectedLabel,
+              customText: h.customText,
+              traits: h.traits,
             })),
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Không phân tích được");
         setResult(data);
-        recordActivity("test", {
+        const snapshot = {
           title: data.title ?? "",
           summary: data.summary ?? "",
           strengths: data.strengths ?? [],
@@ -165,6 +186,22 @@ export default function TestPage() {
               ? `${h.selectedLabel} (tự viết: ${h.customText})`
               : h.selectedLabel,
           })),
+        };
+        recordActivity("test", snapshot);
+        profileFromTestSnapshot(snapshot, {
+          traitScores: data.traitScores ?? {},
+          topTraits: data.topTraits ?? [],
+          insights: data.insights ?? [],
+          suggestedCareers: (data.careers ?? []).map(
+            (c: { id: string; name: string; matchPercent: number; why: string }) => ({
+              id: c.id,
+              name: c.name,
+              matchPercent: c.matchPercent,
+              why: c.why,
+            }),
+          ),
+          gradeLevel,
+          displayName: session?.user?.name ?? undefined,
         });
       } catch (e) {
         setError(e instanceof Error ? e.message : "Lỗi phân tích");
@@ -174,6 +211,16 @@ export default function TestPage() {
     } else {
       setStep((s) => s + 1);
     }
+  }
+
+  function pickTargetCareer(c: ResultData["careers"][0]) {
+    if (!gradeLevel) return;
+    const roadmap = buildRoadmap(c.id, c.name, gradeLevel);
+    saveUserProfile({
+      targetCareer: { id: c.id, name: c.name },
+      roadmap,
+      careerGoal: `Hướng tới ${c.name}`,
+    });
   }
 
   function reset() {
@@ -369,7 +416,7 @@ export default function TestPage() {
               <Card>
                 <CardHeader>
                   <div className="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-800 dark:bg-fuchsia-500/20 dark:text-fuchsia-200">
-                    Kết quả AI
+                    Kết quả phân tích
                   </div>
                   <div className="mt-3 text-xl font-semibold text-slate-900 dark:text-white">
                     {result.title}
@@ -378,31 +425,55 @@ export default function TestPage() {
                     {result.summary}
                   </p>
                 </CardHeader>
-                <CardContent className="space-y-4 pt-2">
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
-                      Điểm mạnh
+                <CardContent className="space-y-5 pt-2">
+                  {result.topTraits?.length ? (
+                    <div className="rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 dark:border-cyan-400/20 dark:bg-cyan-400/10">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-sky-800 dark:text-cyan-200">
+                        Từ câu trả lời của bạn → LEXA phân tích
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {result.topTraits.map((t) => (
+                          <span
+                            key={t}
+                            className="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-800 dark:bg-white/10 dark:text-white/85"
+                          >
+                            {TRAIT_LABELS[t]}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <ul className="mt-2 grid gap-1 text-sm text-slate-700 dark:text-white/80">
-                      {result.strengths?.map((s) => (
-                        <li key={s} className="flex gap-2">
-                          <span className="text-sky-600">•</span> {s}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  ) : null}
+
+                  {result.insights?.length ? (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+                        LEXA nhận thấy
+                      </div>
+                      <ul className="mt-2 space-y-2">
+                        {result.insights.map((s) => (
+                          <li
+                            key={s}
+                            className="flex gap-2 text-sm leading-6 text-slate-700 dark:text-white/80"
+                          >
+                            <span className="text-sky-600 dark:text-cyan-300">→</span>
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
-                      Nghề gợi ý
+                      Vì vậy, các nghề phù hợp là
                     </div>
                     <div className="mt-3 grid gap-3">
                       {result.careers?.map((c) => (
                         <div
-                          key={c.name}
+                          key={c.id}
                           className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5"
                         >
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="font-semibold text-slate-900 dark:text-white">
                               {c.name}
                             </div>
@@ -410,9 +481,15 @@ export default function TestPage() {
                               {c.matchPercent}%
                             </span>
                           </div>
-                          <p className="mt-1 text-sm text-slate-600 dark:text-white/60">
-                            {c.why}
-                          </p>
+                          <p className="mt-1 text-sm text-slate-600 dark:text-white/60">{c.why}</p>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="mt-3"
+                            onClick={() => pickTargetCareer(c)}
+                          >
+                            Chọn làm mục tiêu → xem lộ trình
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -429,9 +506,14 @@ export default function TestPage() {
                     </ul>
                   </div>
 
-                  <Button onClick={reset} size="lg" className="mt-2 w-full justify-center">
-                    Làm lại bài test
-                  </Button>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <ButtonLink href="/" className="flex-1 justify-center" size="lg">
+                      Xem hồ sơ & lộ trình
+                    </ButtonLink>
+                    <Button onClick={reset} variant="secondary" size="lg" className="flex-1">
+                      Làm lại bài test
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>

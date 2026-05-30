@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { GraduationCap } from "lucide-react";
 import {
   GRADE_LEVELS,
@@ -9,6 +10,8 @@ import {
   gradeLevelLabel,
   isValidGradeLevel,
 } from "@/lib/grade-level";
+
+const GRADE_REQUIRED_PATHS = ["/test", "/translate", "/chat", "/practice"];
 
 type GradeLevelContextValue = {
   gradeLevel: GradeLevelId | null;
@@ -57,7 +60,7 @@ function GradeLevelModal({
               Bạn đang học khối nào?
             </h2>
             <p className="text-sm text-slate-600 dark:text-white/60">
-              LEXA AI sẽ điều chỉnh bài test, dịch thuật, trợ lý học và luyện tập cho phù hợp.
+              LEXA cần biết khối lớp để điều chỉnh bài test, trợ lý học và luyện tập.
             </p>
           </div>
         </div>
@@ -83,6 +86,7 @@ function GradeLevelModal({
 }
 
 export function GradeLevelProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [gradeLevel, setGradeLevelState] = React.useState<GradeLevelId | null>(null);
   const [ready, setReady] = React.useState(false);
   const [forceOpen, setForceOpen] = React.useState(false);
@@ -101,7 +105,12 @@ export function GradeLevelProvider({ children }: { children: React.ReactNode }) 
     setForceOpen(false);
   }
 
-  const showModal = ready && (!gradeLevel || forceOpen);
+  const needsGradeOnPage =
+    GRADE_REQUIRED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) &&
+    pathname !== "/login";
+
+  const showModal = ready && forceOpen && pathname !== "/login";
+  const showRequiredModal = ready && needsGradeOnPage && !gradeLevel && !forceOpen;
 
   return (
     <GradeLevelContext.Provider
@@ -113,7 +122,10 @@ export function GradeLevelProvider({ children }: { children: React.ReactNode }) 
       }}
     >
       {children}
-      <GradeLevelModal open={showModal} onSelect={setGradeLevel} />
+      <GradeLevelModal
+        open={showModal || showRequiredModal}
+        onSelect={setGradeLevel}
+      />
     </GradeLevelContext.Provider>
   );
 }

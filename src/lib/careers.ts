@@ -183,3 +183,7 @@ export const CAREERS: Career[] = [
   ...BASE_CAREERS.map(withField),
   ...EXTRA_CAREERS.map(withField),
 ];
+
+export function getCareerById(id: string): Career | undefined {
+  return CAREERS.find((c) => c.id === id);
+}

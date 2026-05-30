@@ -6,23 +6,20 @@ export function TrustSection() {
   return (
     <section>
       <SectionHeading
-        eyebrow="Độ tin cậy"
-        title="Tại sao kết quả của LEXA đáng tin cậy?"
-        description="Mỗi gợi ý được xây dựng từ dữ liệu cá nhân của bạn — không phải câu trả lời chung chung cho tất cả mọi người."
+        eyebrow="Minh bạch"
+        title="LEXA đưa ra gợi ý như thế nào?"
+        description="Gợi ý nghề và lộ trình được xây từ bài đánh giá và hoạt động học tập của bạn trên nền tảng."
         align="center"
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {TRUST_FACTORS.map((item) => (
-          <Card
-            key={item.title}
-            className="transition hover:border-sky-200/80 dark:hover:border-cyan-400/25"
-          >
+          <Card key={item.title}>
             <CardHeader className="flex flex-row items-start gap-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 dark:bg-cyan-400/10">
                 <item.icon className="h-5 w-5 text-sky-600 dark:text-cyan-300" />
               </div>
-              <div className="min-w-0">
+              <div>
                 <div className="text-sm font-semibold text-slate-900 dark:text-white">
                   {item.title}
                 </div>
