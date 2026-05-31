@@ -65,19 +65,18 @@ function readApiKeys(): string[] {
     process.env.GEMINI_API_KEY_2,
     process.env.GEMINI_API_KEY_3,
     process.env.GEMINI_API_KEY_4,
+    process.env.GOOGLE_API_KEY,
   ].filter(Boolean) as string[];
 
-  // Back-compat: nếu bạn đang dùng GOOGLE_API_KEY cũ
-  if (keys.length === 0 && process.env.GOOGLE_API_KEY) {
-    keys.push(process.env.GOOGLE_API_KEY);
-  }
+  // Loại trùng (nếu set cả GEMINI_API_KEY_1 và GOOGLE_API_KEY cùng giá trị)
+  const unique = [...new Set(keys)];
 
-  if (keys.length === 0) {
+  if (unique.length === 0) {
     throw new Error(
-      "Chưa cấu hình API key. Thêm GEMINI_API_KEY_1..4 vào .env.local",
+      "Chưa cấu hình API key. Thêm GEMINI_API_KEY_1 (hoặc GOOGLE_API_KEY) vào .env.local hoặc Vercel Environment Variables.",
     );
   }
-  return keys;
+  return unique;
 }
 
 function pickKeyRoundRobin(keys: string[]) {
