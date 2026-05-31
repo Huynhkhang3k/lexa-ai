@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# vercel env pull output
+.env.vercel
+
 # vercel
 .vercel
 
@@ -42,3 +45,5 @@ next-env.d.ts
 
 # local user accounts (email auth)
 /data/users.json
+
+.vercel

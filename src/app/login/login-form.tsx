@@ -59,40 +59,14 @@ export default function LoginForm() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [gradeError, setGradeError] = React.useState<string | null>(null);
-  const [googleReady, setGoogleReady] = React.useState(false);
-  const [authChecked, setAuthChecked] = React.useState(false);
 
   React.useEffect(() => {
     setLoading(false);
-
     const authError = searchParams.get("error");
     if (authError) {
       setError(AUTH_ERROR_VI[authError] ?? AUTH_ERROR_VI.Default);
     }
-
-    void (async () => {
-      try {
-        const [providers, status] = await Promise.all([
-          getProviders(),
-          fetch("/api/auth/status").then((r) => r.json()),
-        ]);
-        const ready = Boolean(providers?.google ?? status?.google);
-        setGoogleReady(ready);
-
-        const callbackUrl = searchParams.get("callbackUrl");
-        if (callbackUrl && !authError && !ready) {
-          setError(
-            "Google chưa được cấu hình. Thêm GOOGLE_CLIENT_SECRET vào .env.local (máy bạn) hoặc Vercel, rồi khởi động lại server.",
-          );
-          router.replace("/login");
-        }
-      } catch {
-        setGoogleReady(false);
-      } finally {
-        setAuthChecked(true);
-      }
-    })();
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   function ensureGrade(): GradeLevelId | null {
     if (gradeLevel) return gradeLevel;
@@ -150,7 +124,7 @@ export default function LoginForm() {
     const providers = await getProviders();
     if (!providers?.google) {
       setError(
-        "Google OAuth chưa sẵn sàng. Kiểm tra GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET trong .env.local, thêm redirect http://localhost:3000/api/auth/callback/google trên Google Cloud, rồi chạy lại npm run dev:fresh.",
+        "Google chưa bật — mở Google Cloud → Credentials → LEXA2 → copy Client secret, dán vào .env.local dòng GOOGLE_CLIENT_SECRET=..., rồi chạy npm run dev:fresh.",
       );
       return;
     }
@@ -212,19 +186,11 @@ export default function LoginForm() {
               variant="secondary"
               className="w-full justify-center"
               onClick={handleGoogle}
-              disabled={loading || (authChecked && !googleReady)}
+              disabled={loading}
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
               Tiếp tục với Google
             </Button>
-
-            {authChecked && !googleReady ? (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-                Google chưa bật: dán <strong>GOOGLE_CLIENT_SECRET</strong> vào file{" "}
-                <code className="text-[11px]">.env.local</code> (local) hoặc Vercel →
-                Environment Variables, rồi restart / redeploy.
-              </p>
-            ) : null}
 
             <div className="relative py-1 text-center text-xs text-slate-500">
               <span className="bg-white px-2 dark:bg-transparent">hoặc dùng email</span>
