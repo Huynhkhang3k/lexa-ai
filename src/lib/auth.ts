@@ -1,13 +1,17 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { bootstrapAuthEnv, getAuthSecret, isGoogleAuthConfigured } from "./auth-env";
+import {
+  bootstrapAuthEnv,
+  getAuthSecret,
+  getGoogleCredentials,
+  isGoogleAuthConfigured,
+} from "./auth-env";
 import { upsertOAuthUser, verifyUser } from "./user-store";
 
 bootstrapAuthEnv();
 
-const googleId = process.env.GOOGLE_CLIENT_ID?.trim();
-const googleSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+const { clientId: googleId, clientSecret: googleSecret } = getGoogleCredentials();
 
 const providers: NextAuthOptions["providers"] = [
   CredentialsProvider({
@@ -49,12 +53,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google" && user.email) {
-        await upsertOAuthUser({ email: user.email, name: user.name });
+        const stored = await upsertOAuthUser({ email: user.email, name: user.name });
+        user.id = stored.id;
       }
       return true;
     },
-    async jwt({ token, user }) {
-      if (user) {
+    async jwt({ token, user, account }) {
+      if (user?.email && account?.provider === "google") {
+        const stored = await upsertOAuthUser({ email: user.email, name: user.name });
+        token.id = stored.id;
+        token.email = user.email;
+        token.name = user.name;
+      } else if (user?.id) {
         token.id = user.id;
       }
       return token;

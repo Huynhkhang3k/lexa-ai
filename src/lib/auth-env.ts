@@ -27,8 +27,20 @@ export function getAuthSecret(): string {
   return process.env.NEXTAUTH_SECRET!;
 }
 
+export function getGoogleCredentials() {
+  bootstrapAuthEnv();
+  const clientId =
+    process.env.GOOGLE_CLIENT_ID?.trim() ||
+    process.env.AUTH_GOOGLE_ID?.trim() ||
+    "";
+  const clientSecret =
+    process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    process.env.AUTH_GOOGLE_SECRET?.trim() ||
+    "";
+  return { clientId, clientSecret };
+}
+
 export function isGoogleAuthConfigured(): boolean {
-  return Boolean(
-    process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim(),
-  );
+  const { clientId, clientSecret } = getGoogleCredentials();
+  return Boolean(clientId && clientSecret);
 }

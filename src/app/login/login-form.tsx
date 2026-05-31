@@ -59,21 +59,12 @@ export default function LoginForm() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [gradeError, setGradeError] = React.useState<string | null>(null);
-  const [googleReady, setGoogleReady] = React.useState(true);
-
   React.useEffect(() => {
     const authError = searchParams.get("error");
     if (authError) {
       setError(AUTH_ERROR_VI[authError] ?? AUTH_ERROR_VI.Default);
     }
   }, [searchParams]);
-
-  React.useEffect(() => {
-    fetch("/api/auth/status")
-      .then((r) => r.json())
-      .then((data) => setGoogleReady(Boolean(data?.google)))
-      .catch(() => setGoogleReady(false));
-  }, []);
 
   function ensureGrade(): GradeLevelId | null {
     if (gradeLevel) return gradeLevel;
@@ -127,14 +118,6 @@ export default function LoginForm() {
     if (!ensureGrade()) return;
     setError(null);
     setGradeError(null);
-
-    if (!googleReady) {
-      setError(
-        "Google chưa được cấu hình trên server. Dùng đăng ký email bên dưới, hoặc thêm GOOGLE_CLIENT_ID trên Vercel.",
-      );
-      return;
-    }
-
     setLoading(true);
     await signIn("google", { callbackUrl: "/" });
   }
@@ -197,12 +180,6 @@ export default function LoginForm() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
               Tiếp tục với Google
             </Button>
-
-            {!googleReady ? (
-              <p className="text-center text-xs text-amber-700 dark:text-amber-300">
-                Google OAuth cần thêm Client ID trên Vercel — không cần Firebase.
-              </p>
-            ) : null}
 
             <div className="relative py-1 text-center text-xs text-slate-500">
               <span className="bg-white px-2 dark:bg-transparent">hoặc dùng email</span>
