@@ -1,13 +1,17 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { bootstrapAuthEnv, getAuthSecret, isGoogleAuthConfigured } from "./auth-env";
 import { upsertOAuthUser, verifyUser } from "./user-store";
+
+bootstrapAuthEnv();
 
 const googleId = process.env.GOOGLE_CLIENT_ID?.trim();
 const googleSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
 const providers: NextAuthOptions["providers"] = [
   CredentialsProvider({
+    id: "credentials",
     name: "Email",
     credentials: {
       email: { label: "Email", type: "email" },
@@ -39,6 +43,7 @@ export const authOptions: NextAuthOptions = {
   providers,
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   session: { strategy: "jwt" },
   callbacks: {
@@ -61,7 +66,8 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret:
-    process.env.NEXTAUTH_SECRET ??
-    (process.env.NODE_ENV === "development" ? "lexa-local-dev-secret" : undefined),
+  secret: getAuthSecret(),
+  debug: process.env.NODE_ENV === "development",
 };
+
+export { isGoogleAuthConfigured };
