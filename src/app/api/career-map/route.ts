@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyAiRateLimit } from "@/lib/api-guard";
 import { extractJson, generateText } from "@/lib/gemini";
 import {
   gradeLevelLabel,
@@ -14,6 +15,14 @@ type Body = {
   featuresUsed: ActivityFeature[];
   snapshots: FeatureSnapshot;
   gradeLevel?: GradeLevelId;
+  historySummary?: {
+    testCount: number;
+    translateCount: number;
+    chatCount: number;
+    practiceCount: number;
+    recentPractice?: { subject: string; score: string; grade: string }[];
+    recentChatTopics?: string[];
+  };
 };
 
 type MapPayload = {
@@ -98,6 +107,9 @@ function normalizeField(text: string): string {
 
 export async function POST(req: Request) {
   try {
+    const limited = applyAiRateLimit(req, "career-map", 10);
+    if (limited) return limited;
+
     const body = (await req.json()) as Body;
     const gradeLevel = isValidGradeLevel(body.gradeLevel ?? null) ? body.gradeLevel! : "thcs";
 
@@ -108,11 +120,21 @@ export async function POST(req: Request) {
       );
     }
 
+    const historyBlock = body.historySummary
+      ? `\n\nLỊCH SỬ HOẠT ĐỘNG (tổng hợp):
+- Số lần làm test: ${body.historySummary.testCount}
+- Số lần dịch: ${body.historySummary.translateCount}
+- Số cuộc chat: ${body.historySummary.chatCount}
+- Số bài luyện tập: ${body.historySummary.practiceCount}
+${body.historySummary.recentPractice?.length ? `- Luyện tập gần đây: ${body.historySummary.recentPractice.map((p) => `${p.subject} (${p.grade}) ${p.score}`).join("; ")}` : ""}
+${body.historySummary.recentChatTopics?.length ? `- Chủ đề chat: ${body.historySummary.recentChatTopics.join("; ")}` : ""}`
+      : "";
+
     const prompt = `Phân tích đặc điểm RIÊNG của học sinh ${gradeLevelPromptContext(gradeLevel)} — CHỈ dựa trên dữ liệu hoạt động thật bên dưới, KHÔNG dùng mẫu có sẵn.
 
 Đã dùng: ${body.featuresUsed.join(", ")}
 
-${formatSnapshots(body.snapshots ?? {})}
+${formatSnapshots(body.snapshots ?? {})}${historyBlock}
 
 Quy tắc bắt buộc:
 1. Suy luận nội bộ từ câu trả lời test, câu hỏi chat, môn luyện tập, nội dung dịch — mỗi người phải ra kết quả KHÁC nhau.

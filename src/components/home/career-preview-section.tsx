@@ -14,9 +14,10 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { SectionHeading } from "./section-heading";
+import { CareerImage } from "@/components/career/career-image";
 import { CAREERS, getCareerById } from "@/lib/careers";
 import { getCareerTechnologies } from "@/lib/career-tech";
-import { getUserProfile, hasCompletedAssessment } from "@/lib/user-profile";
+import { getUserProfile, type UserProfile } from "@/lib/user-profile";
 
 const INFO_ROWS = [
   { key: "description", label: "Mô tả", icon: BookOpen },
@@ -29,10 +30,11 @@ const INFO_ROWS = [
 ] as const;
 
 export function CareerPreviewSection() {
-  const [profile, setProfile] = React.useState(getUserProfile);
+  const [profile, setProfile] = React.useState<UserProfile>({});
 
   React.useEffect(() => {
     const refresh = () => setProfile(getUserProfile());
+    refresh();
     window.addEventListener("lexa-profile-updated", refresh);
     return () => window.removeEventListener("lexa-profile-updated", refresh);
   }, []);
@@ -40,9 +42,9 @@ export function CareerPreviewSection() {
   const careerId =
     profile.targetCareer?.id ??
     profile.suggestedCareers?.[0]?.id ??
-    (hasCompletedAssessment() ? undefined : "ai-eng");
+    "ai-eng";
 
-  const base = careerId ? getCareerById(careerId) : CAREERS[0];
+  const base = getCareerById(careerId) ?? CAREERS[0];
   const career = base
     ? {
         ...base,
@@ -68,6 +70,9 @@ export function CareerPreviewSection() {
       />
 
       <Card className="mt-8 overflow-hidden border-slate-200/80 dark:border-white/10">
+        {career.imageUrl ? (
+          <CareerImage careerId={career.id} alt={career.name} className="rounded-none" />
+        ) : null}
         <CardHeader className="border-b border-slate-200/80 bg-gradient-to-r from-slate-50 to-sky-50/50 pb-4 dark:border-white/10 dark:from-white/[0.04] dark:to-cyan-500/[0.06]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>

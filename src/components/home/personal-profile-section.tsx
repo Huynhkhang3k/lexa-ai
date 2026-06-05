@@ -5,23 +5,37 @@ import { User } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SectionHeading } from "./section-heading";
-import { getUserProfile, hasCompletedAssessment } from "@/lib/user-profile";
+import { getUserProfile, hasCompletedAssessment, type UserProfile } from "@/lib/user-profile";
+import { getUserHistory, type UserHistory } from "@/lib/user-history";
 import { TRAIT_LABELS } from "@/lib/test-scoring";
 import type { TraitId } from "@/lib/test-scoring";
 import { useSession } from "next-auth/react";
 
 export function PersonalProfileSection() {
   const { data: session } = useSession();
-  const [profile, setProfile] = React.useState(getUserProfile);
-  const hasProfile = hasCompletedAssessment();
+  const [profile, setProfile] = React.useState<UserProfile>({});
+  const [history, setHistory] = React.useState<UserHistory>({
+    testAttempts: [],
+    translateHistory: [],
+    chatSessions: [],
+    practiceHistory: [],
+  });
+  const [hasProfile, setHasProfile] = React.useState(false);
 
   React.useEffect(() => {
-    const refresh = () => setProfile(getUserProfile());
+    const refresh = () => {
+      setProfile(getUserProfile());
+      setHistory(getUserHistory());
+      setHasProfile(hasCompletedAssessment());
+    };
+    refresh();
     window.addEventListener("lexa-profile-updated", refresh);
     window.addEventListener("lexa-activity-updated", refresh);
+    window.addEventListener("lexa-history-updated", refresh);
     return () => {
       window.removeEventListener("lexa-profile-updated", refresh);
       window.removeEventListener("lexa-activity-updated", refresh);
+      window.removeEventListener("lexa-history-updated", refresh);
     };
   }, []);
 
@@ -39,7 +53,7 @@ export function PersonalProfileSection() {
           <CardContent className="flex flex-col items-center p-8 text-center sm:p-10">
             <User className="h-10 w-10 text-slate-400 dark:text-white/40" />
             <p className="mt-4 max-w-md text-sm text-slate-600 dark:text-white/60">
-              Chưa có hồ sơ. Bắt đầu bài đánh giá 10 câu để LEXA phân tích và lưu kết quả
+              Chưa có hồ sơ. Làm bài test Holland RIASEC (18 câu) để LEXA phân tích và lưu kết quả
               {session ? " cho tài khoản của bạn" : " trên thiết bị này"}.
             </p>
             <ButtonLink href="/test" className="mt-6 justify-center">
@@ -103,7 +117,7 @@ export function PersonalProfileSection() {
                     key={t}
                     className="mr-1.5 mt-1 inline-block rounded-lg bg-sky-50 px-2 py-1 text-xs font-medium dark:bg-cyan-400/10"
                   >
-                    {TRAIT_LABELS[t]}
+                            {TRAIT_LABELS[t] ?? t}
                   </span>
                 ))}
               </Block>
@@ -136,8 +150,34 @@ export function PersonalProfileSection() {
             ) : null}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">
+              Hoạt động đã lưu
+            </div>
+            <p className="text-xs text-slate-500 dark:text-white/50">
+              Dữ liệu thật từ bài test, dịch thuật, chat và luyện tập — dùng để phân tích lộ trình.
+            </p>
+          </CardHeader>
+          <CardContent className="grid gap-2 pt-0 sm:grid-cols-2">
+            <Stat label="Lần làm test" value={history.testAttempts.length} />
+            <Stat label="Lần dịch" value={history.translateHistory.length} />
+            <Stat label="Cuộc chat" value={history.chatSessions.length} />
+            <Stat label="Bài luyện tập" value={history.practiceHistory.length} />
+          </CardContent>
+        </Card>
       </div>
     </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-slate-200/80 px-3 py-2 dark:border-white/10">
+      <div className="text-xs text-slate-500 dark:text-white/50">{label}</div>
+      <div className="text-lg font-semibold text-slate-900 dark:text-white">{value}</div>
+    </div>
   );
 }
 

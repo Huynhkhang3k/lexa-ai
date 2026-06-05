@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { getProviders, signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
@@ -50,7 +50,6 @@ function GoogleIcon() {
 
 export default function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { gradeLevel, setGradeLevel } = useGradeLevel();
   const [mode, setMode] = React.useState<Mode>("login");
   const [email, setEmail] = React.useState("");
@@ -62,11 +61,12 @@ export default function LoginForm() {
 
   React.useEffect(() => {
     setLoading(false);
-    const authError = searchParams.get("error");
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("error");
     if (authError) {
       setError(AUTH_ERROR_VI[authError] ?? AUTH_ERROR_VI.Default);
     }
-  }, [searchParams]);
+  }, []);
 
   function ensureGrade(): GradeLevelId | null {
     if (gradeLevel) return gradeLevel;

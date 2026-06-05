@@ -1,281 +1,231 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Loader2, Sparkles, XCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Container } from "@/components/ui/container";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { PracticeResults } from "@/components/practice/practice-results";
+import { PracticeSession } from "@/components/practice/practice-session";
+import { PracticeSetup } from "@/components/practice/practice-setup";
 import { useGradeLevel } from "@/context/grade-level-context";
+import { usePracticeStream } from "@/hooks/use-practice-stream";
+import { analyzePracticeSession } from "@/lib/practice-analysis";
 import { recordActivity } from "@/lib/user-activity";
-
-const GRADES = [
-  "Lớp 6",
-  "Lớp 7",
-  "Lớp 8",
-  "Lớp 9",
-  "Lớp 10",
-  "Lớp 11",
-  "Lớp 12",
-] as const;
+import { appendPracticeRecord } from "@/lib/user-history";
+import type {
+  PracticeAnswer,
+  PracticeCount,
+  PracticeQuestion,
+  PracticeSessionResult,
+} from "@/lib/practice-types";
 
 type Difficulty = "Dễ" | "Trung bình" | "Khó";
-
-type Question = {
-  id: string;
-  prompt: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-};
+type Phase = "setup" | "loading" | "session" | "results";
 
 export default function PracticePage() {
   const { gradeLevel } = useGradeLevel();
-  const [grade, setGrade] = React.useState<string>("Lớp 10");
+  const stream = usePracticeStream();
+
+  const [phase, setPhase] = React.useState<Phase>("setup");
+  const [grade, setGrade] = React.useState("Lớp 10");
   const [subject, setSubject] = React.useState("Toán");
   const [difficulty, setDifficulty] = React.useState<Difficulty>("Trung bình");
-  const [count, setCount] = React.useState(10);
-  const [questions, setQuestions] = React.useState<Question[] | null>(null);
-  const [answers, setAnswers] = React.useState<Record<string, number>>({});
-  const [submitted, setSubmitted] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [count, setCount] = React.useState<PracticeCount>(20);
 
-  async function generate() {
-    setLoading(true);
-    setError(null);
-    setSubmitted(false);
-    setAnswers({});
-    try {
-      const res = await fetch("/api/practice/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grade, subject, difficulty, count, gradeLevel: gradeLevel ?? "thcs" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Không tạo được đề");
-      setQuestions(data.questions);
-      recordActivity("practice", { grade, subject, difficulty });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Lỗi mạng");
-      setQuestions(null);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+  const [answers, setAnswers] = React.useState<Record<string, PracticeAnswer>>({});
+  const [timeLeftSec, setTimeLeftSec] = React.useState(0);
+  const [startedAt, setStartedAt] = React.useState<number | null>(null);
+  const [result, setResult] = React.useState<PracticeSessionResult | null>(null);
 
-  const score = React.useMemo(() => {
-    if (!questions || !submitted) return null;
-    let correct = 0;
-    for (const q of questions) {
-      if (answers[q.id] === q.correctIndex) correct++;
-    }
-    return { correct, total: questions.length };
-  }, [questions, answers, submitted]);
+  const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const finishedRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (!score || !questions) return;
-    recordActivity("practice", {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  function startTimer(sec: number) {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimeLeftSec(sec);
+    timerRef.current = setInterval(() => {
+      setTimeLeftSec((t) => {
+        if (t <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  }
+
+  function finishSession(
+    qs: PracticeQuestion[],
+    ans: Record<string, PracticeAnswer>,
+    startMs: number,
+  ) {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    const durationMs = Date.now() - startMs;
+    const analysis = analyzePracticeSession(qs, ans, durationMs);
+    setResult(analysis);
+    setPhase("results");
+
+    const scoreStr = `${analysis.correct}/${analysis.total}`;
+    recordActivity("practice", { grade, subject, difficulty, score: scoreStr });
+    const record = {
+      sessionId: stream.sessionId || `ps-${Date.now()}`,
       grade,
       subject,
       difficulty,
-      score: `${score.correct}/${score.total}`,
+      count: stream.meta?.count ?? qs.length,
+      correct: analysis.correct,
+      total: analysis.total,
+      wrong: analysis.wrong,
+      score: scoreStr,
+      accuracy: analysis.accuracy,
+      durationMs: analysis.durationMs,
+      topicsStrong: analysis.strengths,
+      topicsWeak: analysis.weaknesses,
+      topicsReview: analysis.topicsReview,
+      knowledgeGaps: analysis.knowledgeGaps,
+    };
+    appendPracticeRecord(record);
+    void fetch("/api/practice/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record),
     });
-  }, [score, grade, subject, difficulty, questions]);
+  }
+
+  async function startPractice() {
+    setPhase("loading");
+    stream.setError(null);
+    try {
+      await stream.start({
+        grade,
+        subject,
+        difficulty,
+        count,
+        gradeLevel: gradeLevel ?? "thcs",
+      });
+
+      finishedRef.current = false;
+      setCurrentIndex(0);
+      setAnswers({});
+      const now = Date.now();
+      setStartedAt(now);
+      startTimer(stream.meta?.timeLimitSec ?? (count === 30 ? 1800 : 1200));
+      setPhase("session");
+      recordActivity("practice", { grade, subject, difficulty });
+    } catch {
+      setPhase("setup");
+    }
+  }
+
+  function handleTimeUp() {
+    if (startedAt) finishSession(stream.questions, answers, startedAt);
+  }
+
+  React.useEffect(() => {
+    if (phase === "session" && timeLeftSec === 0 && startedAt) {
+      handleTimeUp();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeftSec, phase]);
+
+  async function handleNext() {
+    const total = stream.meta?.count ?? count;
+    if (currentIndex + 1 >= total) {
+      if (startedAt) finishSession(stream.questions, answers, startedAt);
+      return;
+    }
+
+    if (stream.questions[currentIndex + 1]) {
+      setCurrentIndex((i) => i + 1);
+      return;
+    }
+
+    const ok = await stream.ensureNextQuestion(currentIndex);
+    if (ok) setCurrentIndex((i) => i + 1);
+  }
+
+  function resetAll() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    stream.reset();
+    setPhase("setup");
+    setAnswers({});
+    setCurrentIndex(0);
+    setResult(null);
+    setStartedAt(null);
+  }
+
+  const totalCount = stream.meta?.count ?? count;
+  const currentQuestion = stream.questions[currentIndex];
 
   return (
     <Container className="py-10 sm:py-14">
       <div className="mx-auto max-w-4xl">
         <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/60">
-          Practice Generator · AI Gemini
+          Luyện tập · LEXA AI
         </div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
           Luyện tập theo lớp & môn học
         </h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-          Chọn lớp luyện tập — AI tạo đề khó hơn mức lớp đã chọn, phù hợp khối bạn đang học.
+          Bắt đầu trong vài giây · AI sinh từng câu · preload thông minh · hình SVG tức thì.
         </p>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[360px_1fr]">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                Tuỳ chọn
-              </span>
-              <Sparkles className="h-5 w-5 text-sky-600" />
-            </CardHeader>
-            <CardContent className="grid gap-3 pt-2">
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs font-medium text-slate-500">Lớp</span>
-                <select
-                  value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 dark:border-white/15 dark:bg-black/30 dark:text-white"
-                >
-                  {GRADES.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
-              </label>
+        <div className="mt-8">
+          {phase === "setup" ? (
+            <PracticeSetup
+              grade={grade}
+              subject={subject}
+              difficulty={difficulty}
+              count={count}
+              loading={stream.loadingStart}
+              error={stream.error}
+              onGrade={setGrade}
+              onSubject={setSubject}
+              onDifficulty={setDifficulty}
+              onCount={setCount}
+              onStart={startPractice}
+            />
+          ) : null}
 
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs font-medium text-slate-500">Môn học</span>
-                <select
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 dark:border-white/15 dark:bg-black/30 dark:text-white"
-                >
-                  {["Toán", "Vật lý", "Hoá học", "Sinh học", "Tiếng Anh", "Ngữ văn", "Lịch sử", "Địa lý"].map(
-                    (s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
+          {phase === "loading" ? (
+            <div className="mt-6 flex flex-col items-center gap-3 text-sm text-slate-500">
+              <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
+              Đang tạo Câu 1…
+            </div>
+          ) : null}
 
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs font-medium text-slate-500">Độ khó</span>
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 dark:border-white/15 dark:bg-black/30 dark:text-white"
-                >
-                  {(["Dễ", "Trung bình", "Khó"] as Difficulty[]).map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          {phase === "session" && currentQuestion ? (
+            <PracticeSession
+              question={currentQuestion}
+              currentIndex={currentIndex}
+              totalCount={totalCount}
+              answer={answers[currentQuestion.id]}
+              timeLeftSec={timeLeftSec}
+              loadingNext={stream.loadingNext}
+              onAnswer={(id, a) => setAnswers((prev) => ({ ...prev, [id]: a }))}
+              onNext={() => void handleNext()}
+              onTimeUp={handleTimeUp}
+            />
+          ) : null}
 
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs font-medium text-slate-500">Số câu (5–15)</span>
-                <input
-                  type="number"
-                  min={5}
-                  max={15}
-                  value={count}
-                  onChange={(e) => setCount(Number(e.target.value))}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 dark:border-white/15 dark:bg-black/30 dark:text-white"
-                />
-              </label>
-
-              <Button
-                size="lg"
-                className="mt-2 justify-center"
-                onClick={generate}
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Đang tạo đề…
-                  </>
-                ) : (
-                  "Tạo bộ câu hỏi AI"
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                Bài luyện tập
-              </div>
-              <p className="text-sm text-slate-600 dark:text-white/60">
-                {questions
-                  ? `${questions.length} câu · ${grade} · ${subject} · ${difficulty}`
-                  : "Chưa có đề — bấm tạo bên trái."}
-              </p>
-            </CardHeader>
-            <CardContent className="pt-2">
-              {error ? (
-                <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>
-              ) : null}
-
-              {score ? (
-                <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-center dark:border-cyan-500/30 dark:bg-cyan-500/10">
-                  <div className="text-2xl font-bold text-sky-800 dark:text-cyan-200">
-                    {score.correct}/{score.total}
-                  </div>
-                  <div className="text-sm text-sky-700 dark:text-cyan-300/80">điểm đúng</div>
-                </div>
-              ) : null}
-
-              {questions?.map((q, qi) => (
-                <div
-                  key={q.id}
-                  className="mb-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5"
-                >
-                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Câu {qi + 1}. {q.prompt}
-                  </div>
-                  <div className="mt-3 grid gap-2">
-                    {q.options.map((opt, idx) => {
-                      const picked = answers[q.id] === idx;
-                      const showResult = submitted;
-                      const isCorrect = idx === q.correctIndex;
-                      return (
-                        <label
-                          key={opt}
-                          className={[
-                            "flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 text-sm transition",
-                            picked
-                              ? "border-sky-400 bg-sky-50 dark:border-cyan-400/50 dark:bg-cyan-400/10"
-                              : "border-slate-200 bg-white dark:border-white/10 dark:bg-black/20",
-                            showResult && isCorrect
-                              ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-500/10"
-                              : "",
-                            showResult && picked && !isCorrect
-                              ? "border-red-300 bg-red-50 dark:bg-red-500/10"
-                              : "",
-                          ].join(" ")}
-                        >
-                          <input
-                            type="radio"
-                            name={q.id}
-                            checked={picked}
-                            disabled={submitted}
-                            onChange={() =>
-                              setAnswers((a) => ({ ...a, [q.id]: idx }))
-                            }
-                          />
-                          <span className="text-slate-800 dark:text-white/90">{opt}</span>
-                          {showResult && isCorrect ? (
-                            <CheckCircle2 className="ml-auto h-4 w-4 text-emerald-600" />
-                          ) : null}
-                          {showResult && picked && !isCorrect ? (
-                            <XCircle className="ml-auto h-4 w-4 text-red-500" />
-                          ) : null}
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {submitted ? (
-                    <p className="mt-2 text-xs text-slate-600 dark:text-white/55">
-                      💡 {q.explanation}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-
-              {questions && questions.length > 0 ? (
-                <Button
-                  className="w-full justify-center"
-                  size="lg"
-                  disabled={submitted || Object.keys(answers).length < questions.length}
-                  onClick={() => setSubmitted(true)}
-                >
-                  Nộp bài & xem đáp án
-                </Button>
-              ) : !loading ? (
-                <p className="text-sm text-slate-500">Chưa có câu hỏi.</p>
-              ) : null}
-            </CardContent>
-          </Card>
+          {phase === "results" && result ? (
+            <PracticeResults
+              result={result}
+              grade={grade}
+              subject={subject}
+              difficulty={difficulty}
+              onRetry={resetAll}
+            />
+          ) : null}
         </div>
       </div>
     </Container>

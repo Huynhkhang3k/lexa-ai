@@ -16,6 +16,8 @@ import { ForeignVoiceControls } from "@/components/language-hub/english-voice-co
 import { pickForeignSpeakText } from "@/lib/tts-languages";
 import { useGradeLevel } from "@/context/grade-level-context";
 import { recordActivity } from "@/lib/user-activity";
+import { appendTranslateRecord } from "@/lib/user-history";
+import { formatLangAbbrev } from "@/lib/lang-codes";
 
 type Lang = "auto" | "en" | "vi";
 type LingoMode = "translate" | "fix" | "improve";
@@ -39,7 +41,7 @@ type LingoResp = {
 };
 
 const modes: { id: LingoMode; label: string; hint: string }[] = [
-  { id: "translate", label: "Dịch câu", hint: "EN ↔ VI · gợi ý nhiều bản" },
+  { id: "translate", label: "Dịch câu", hint: "EN ↔ VIE · gợi ý nhiều bản" },
   { id: "fix", label: "Sửa lỗi", hint: "Ngữ pháp · chính tả" },
   { id: "improve", label: "Viết lại", hint: "Tự nhiên · hay hơn" },
 ];
@@ -104,6 +106,11 @@ export function TranslatorTab() {
           lastOutput: out.trim(),
           mode,
         });
+        appendTranslateRecord({
+          mode: modes.find((m) => m.id === mode)?.label ?? mode,
+          input: text,
+          output: out.trim(),
+        });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi mạng");
@@ -167,7 +174,7 @@ export function TranslatorTab() {
               >
                 <option value="auto">Tự động</option>
                 <option value="en">English</option>
-                <option value="vi">Tiếng Việt</option>
+                <option value="vi">Tiếng Việt (VIE)</option>
               </select>
 
               <Button
@@ -186,7 +193,7 @@ export function TranslatorTab() {
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/15 dark:bg-black/30 dark:text-white"
                 aria-label="Target language"
               >
-                <option value="vi">Tiếng Việt</option>
+                <option value="vi">Tiếng Việt (VIE)</option>
                 <option value="en">English</option>
               </select>
             </div>
@@ -307,7 +314,10 @@ function TranslateResults({ data }: { data: LingoResp }) {
           label="Độ tin cậy"
           value={`${Math.round((data.confidence ?? 0.7) * 100)}%`}
         />
-        <MetaChip label="Ngôn ngữ phát hiện" value={data.detectedLang?.toUpperCase() ?? "—"} />
+        <MetaChip
+          label="Ngôn ngữ phát hiện"
+          value={formatLangAbbrev(data.detectedLang)}
+        />
       </div>
       <Section title="Gợi ý dịch khác">
         <div className="grid gap-2">

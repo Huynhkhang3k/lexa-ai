@@ -2,196 +2,125 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, GraduationCap, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, GraduationCap, Loader2 } from "lucide-react";
+import { HollandRiasecSection } from "@/components/home/holland-riasec-section";
+import { HollandResultView } from "@/components/holland/holland-result-view";
 import { Container } from "@/components/ui/container";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { useGradeLevel, gradeLevelLabel } from "@/context/grade-level-context";
 import { useSession } from "next-auth/react";
 import { recordActivity } from "@/lib/user-activity";
+import { appendTestAttempt } from "@/lib/user-history";
+import { toUserFacingError } from "@/lib/user-errors";
 import { profileFromTestSnapshot, saveUserProfile } from "@/lib/user-profile";
-import { buildRoadmap } from "@/lib/roadmap";
-import type { TraitId } from "@/lib/test-scoring";
-import { TRAIT_LABELS } from "@/lib/test-scoring";
 import {
-  getSchoolQuestion,
-  inferTraitsFromText,
-  TOTAL_QUESTIONS,
-  SCHOOL_QUESTION_COUNT,
-  type TestOption,
-} from "@/lib/test-questions";
-
-type Answer = {
-  questionIndex: number;
-  question: string;
-  selectedId: string;
-  selectedLabel: string;
-  customText?: string;
-  traits?: TraitId[];
-};
-
-type QuestionData = {
-  question: string;
-  options: TestOption[];
-};
-
-type ResultData = {
-  title: string;
-  summary: string;
-  strengths: string[];
-  insights: string[];
-  topTraits: TraitId[];
-  careers: { id: string; name: string; why: string; matchPercent: number }[];
-  nextSteps: string[];
-};
+  HOLLAND_QUESTIONS,
+  HOLLAND_QUESTION_COUNT,
+  type HollandQuestion,
+} from "@/lib/holland-questions";
+import type { HollandAnswer, HollandResult } from "@/lib/holland-scoring";
+import { getRiasecType } from "@/lib/holland-riasec";
+import { cn } from "@/lib/utils";
 
 export default function TestPage() {
   const { gradeLevel, ready, openPicker } = useGradeLevel();
   const { data: session } = useSession();
+  const [testStarted, setTestStarted] = React.useState(false);
   const [step, setStep] = React.useState(0);
-  const [history, setHistory] = React.useState<Answer[]>([]);
-  const [current, setCurrent] = React.useState<QuestionData | null>(null);
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [customText, setCustomText] = React.useState("");
-  const [useCustom, setUseCustom] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
+  const [answers, setAnswers] = React.useState<HollandAnswer[]>([]);
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [loadingResult, setLoadingResult] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [result, setResult] = React.useState<ResultData | null>(null);
-  const [retryTick, setRetryTick] = React.useState(0);
+  const [result, setResult] = React.useState<HollandResult | null>(null);
 
-  const done = step >= TOTAL_QUESTIONS;
-  const progress = done ? 100 : Math.round(((step + 1) / TOTAL_QUESTIONS) * 100);
+  const done = step >= HOLLAND_QUESTION_COUNT;
+  const current: HollandQuestion | undefined = HOLLAND_QUESTIONS[step];
+  const progress = done ? 100 : Math.round(((step + 1) / HOLLAND_QUESTION_COUNT) * 100);
 
   React.useEffect(() => {
-    if (!ready || !gradeLevel || done) return;
+    if (!current || done) return;
+    const prev = answers.find((a) => a.questionId === current.id);
+    setSelected(new Set(prev?.selectedOptionIds ?? []));
+  }, [step, current?.id, done, answers]);
 
-    let cancelled = false;
+  function toggleOption(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-      setSelectedId(null);
-      setCustomText("");
-      setUseCustom(false);
-
-      if (step < SCHOOL_QUESTION_COUNT) {
-        if (!cancelled) {
-          setCurrent(getSchoolQuestion(step, gradeLevel!));
-          setLoading(false);
-        }
-        return;
-      }
-
-      const hist = history;
-      try {
-        const res = await fetch("/api/test/question", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            questionIndex: step,
-            ageGroup: gradeLevel,
-            history: hist.map((h) => ({
-              questionIndex: h.questionIndex,
-              question: h.question,
-              selectedLabel: h.selectedLabel,
-              traits: h.traits,
-            })),
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Không tải được câu hỏi");
-        if (!cancelled) {
-          setCurrent({ question: data.question, options: data.options });
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Lỗi mạng");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [ready, gradeLevel, step, done, retryTick, history]);
-
-  async function submitAnswer() {
+  async function submitQuestion() {
     if (!current || !gradeLevel) return;
-    let label = "";
-    if (useCustom) {
-      if (!customText.trim()) return;
-      label = customText.trim();
-    } else {
-      if (!selectedId) return;
-      const opt = current.options.find((o) => o.id === selectedId);
-      if (!opt) return;
-      label = opt.label;
+    if (selected.size === 0) {
+      setError("Hãy chọn ít nhất một ý bạn cảm thấy đúng.");
+      return;
     }
 
-    let traits: TraitId[] | undefined;
-    if (useCustom) {
-      traits = inferTraitsFromText(customText.trim());
-    } else {
-      const opt = current.options.find((o) => o.id === selectedId);
-      traits = opt?.traits;
-    }
-
-    const answer: Answer = {
-      questionIndex: step,
-      question: current.question,
-      selectedId: useCustom ? "custom" : selectedId!,
-      selectedLabel: useCustom ? customText.trim() : label,
-      customText: useCustom ? customText.trim() : undefined,
-      traits,
+    setError(null);
+    const entry: HollandAnswer = {
+      questionId: current.id,
+      selectedOptionIds: [...selected],
     };
 
-    const newHistory = [...history, answer];
-    setHistory(newHistory);
+    const nextAnswers = [...answers.filter((a) => a.questionId !== current.id), entry];
+    setAnswers(nextAnswers);
 
-    if (step + 1 >= TOTAL_QUESTIONS) {
-      setStep(TOTAL_QUESTIONS);
+    if (step + 1 >= HOLLAND_QUESTION_COUNT) {
+      setStep(HOLLAND_QUESTION_COUNT);
       setLoadingResult(true);
-      setError(null);
       try {
         const res = await fetch("/api/test/result", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ageGroup: gradeLevel,
-            history: newHistory.map((h) => ({
-              questionIndex: h.questionIndex,
-              question: h.question,
-              selectedLabel: h.selectedLabel,
-              customText: h.customText,
-              traits: h.traits,
-            })),
-          }),
+          body: JSON.stringify({ answers: nextAnswers, ageGroup: gradeLevel }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Không phân tích được");
-        setResult(data);
+        setResult(data as HollandResult);
+
         const snapshot = {
-          title: data.title ?? "",
+          title: data.title ?? `Mã Holland ${data.hollandCode}`,
           summary: data.summary ?? "",
           strengths: data.strengths ?? [],
           careers: (data.careers ?? []).map((c: { name: string }) => c.name),
           nextSteps: data.nextSteps ?? [],
-          answers: newHistory.map((h) => ({
-            question: h.question,
-            answer: h.customText
-              ? `${h.selectedLabel} (tự viết: ${h.customText})`
-              : h.selectedLabel,
-          })),
+          answers: nextAnswers.map((a) => {
+            const q = HOLLAND_QUESTIONS.find((x) => x.id === a.questionId);
+            const labels = q?.options
+              .filter((o) => a.selectedOptionIds.includes(o.id))
+              .map((o) => o.label)
+              .join("; ");
+            return { question: q?.title ?? a.questionId, answer: labels || "—" };
+          }),
         };
+
         recordActivity("test", snapshot);
         profileFromTestSnapshot(snapshot, {
-          traitScores: data.traitScores ?? {},
-          topTraits: data.topTraits ?? [],
-          insights: data.insights ?? [],
+          traitScores: {
+            logic: 0,
+            tech: 0,
+            math: 0,
+            creative: 0,
+            art: 0,
+            design: 0,
+            communication: 0,
+            leadership: 0,
+            business: 0,
+            social: 0,
+            practical: 0,
+          },
+          topTraits: [],
+          insights: [
+            data.summary,
+            ...(data.topGroups ?? []).map(
+              (g: { labelVi: string; code: string; score: number }) =>
+                `${g.labelVi} (${g.code}): ${g.score} điểm`,
+            ),
+          ],
           suggestedCareers: (data.careers ?? []).map(
             (c: { id: string; name: string; matchPercent: number; why: string }) => ({
               id: c.id,
@@ -203,8 +132,46 @@ export default function TestPage() {
           gradeLevel,
           displayName: session?.user?.name ?? undefined,
         });
+        saveUserProfile({
+          skillsToDevelop: data.skillsToDevelop,
+          hollandResult: {
+            hollandCode: data.hollandCode,
+            radarValues: data.radarValues ?? [],
+            groups: (data.groups ?? []).map(
+              (g: { code: string; labelVi: string; score: number; percent: number }) => ({
+                code: g.code,
+                labelVi: g.labelVi,
+                score: g.score,
+                percent: g.percent,
+              }),
+            ),
+            topGroups: (data.topGroups ?? []).map(
+              (g: { code: string; labelVi: string; score: number }) => ({
+                code: g.code,
+                labelVi: g.labelVi,
+                score: g.score,
+              }),
+            ),
+            completedAt: new Date().toISOString(),
+          },
+        });
+
+        appendTestAttempt({
+          gradeLevel,
+          title: data.title ?? `Holland ${data.hollandCode}`,
+          summary: data.summary ?? "",
+          strengths: data.strengths ?? [],
+          careers: (data.careers ?? []).map((c: { name: string }) => c.name),
+          topTraits: [],
+          insights:
+            data.topGroups?.map(
+              (g: { labelVi: string; score: number; code: string }) =>
+                `${g.labelVi} (${g.code}): ${g.score}`,
+            ) ?? [],
+        });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Lỗi phân tích");
+        setError(toUserFacingError(e instanceof Error ? e.message : "Lỗi phân tích"));
+        setStep(HOLLAND_QUESTION_COUNT - 1);
       } finally {
         setLoadingResult(false);
       }
@@ -213,20 +180,20 @@ export default function TestPage() {
     }
   }
 
-  function pickTargetCareer(c: ResultData["careers"][0]) {
-    if (!gradeLevel) return;
-    const roadmap = buildRoadmap(c.id, c.name, gradeLevel);
-    saveUserProfile({
-      targetCareer: { id: c.id, name: c.name },
-      roadmap,
-      careerGoal: `Hướng tới ${c.name}`,
-    });
+  function goBack() {
+    if (step === 0) {
+      setTestStarted(false);
+      return;
+    }
+    setError(null);
+    setStep((s) => s - 1);
   }
 
   function reset() {
+    setTestStarted(false);
     setStep(0);
-    setHistory([]);
-    setCurrent(null);
+    setAnswers([]);
+    setSelected(new Set());
     setResult(null);
     setError(null);
   }
@@ -234,7 +201,7 @@ export default function TestPage() {
   if (!ready) {
     return (
       <Container className="flex min-h-[40vh] items-center justify-center py-14">
-        <Loader2 className="h-8 w-8 animate-spin text-sky-600 dark:text-cyan-300" />
+        <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
       </Container>
     );
   }
@@ -245,12 +212,12 @@ export default function TestPage() {
         <div className="mx-auto max-w-lg rounded-3xl border border-slate-200/80 bg-white/90 p-8 text-center dark:border-white/10 dark:bg-white/[0.04]">
           <GraduationCap className="mx-auto h-10 w-10 text-sky-600 dark:text-cyan-300" />
           <h1 className="mt-4 text-xl font-semibold text-slate-900 dark:text-white">
-            Chọn khối lớp để bắt đầu bài test
+            Chọn khối lớp để bắt đầu
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-            Hộp thoại chọn khối lớp sẽ hiện trên màn hình. Nếu không thấy, bấm nút bên dưới.
+            Bài test Holland RIASEC — 18 câu chuẩn, mỗi câu 6 lựa chọn, chọn nhiều đáp án.
           </p>
-          <Button variant="primary" size="md" className="mt-6" onClick={() => openPicker()}>
+          <Button className="mt-6" onClick={() => openPicker()}>
             Chọn khối lớp
           </Button>
         </div>
@@ -258,265 +225,157 @@ export default function TestPage() {
     );
   }
 
+  if (!testStarted && !result) {
+    return (
+      <Container className="py-10 sm:py-14">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-6 text-center">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/60">
+              {gradeLevelLabel(gradeLevel)}
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white sm:text-3xl">
+              Trắc nghiệm hướng nghiệp Holland
+            </h1>
+          </div>
+          <HollandRiasecSection variant="test-intro" onStartTest={() => setTestStarted(true)} />
+          <p className="mt-6 text-center text-xs text-slate-500 dark:text-white/45">
+            <ButtonLink href="/#phuong-phap-danh-gia" className="underline">
+              Xem phương pháp đánh giá LEXA AI
+            </ButtonLink>
+          </p>
+        </div>
+      </Container>
+    );
+  }
+
+  const groupType = current ? getRiasecType(current.group) : null;
+
   return (
     <Container className="py-10 sm:py-14">
       <div className="mx-auto max-w-3xl">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/60">
-              AI Career Test · {TOTAL_QUESTIONS} câu · {gradeLevelLabel(gradeLevel)}
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
-              Bài test định hướng nghề nghiệp
-            </h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-white/60">
-              Câu hỏi được điều chỉnh theo khối {gradeLevelLabel(gradeLevel)} — gồm 2 câu về trường học và 8 câu AI khám phá bản thân.
-            </p>
+        {!result ? (
+          <div className="mb-6 rounded-2xl border border-violet-200/60 bg-violet-50/50 px-4 py-2.5 text-xs text-violet-900 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-100">
+            <strong>Holland RIASEC</strong> · Câu {Math.min(step + 1, HOLLAND_QUESTION_COUNT)}/{HOLLAND_QUESTION_COUNT} ·
+            mỗi lựa chọn +1 điểm · {gradeLevelLabel(gradeLevel)}
           </div>
-          <Button variant="secondary" onClick={reset}>
-            Làm lại
-          </Button>
+        ) : null}
+
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            {!result ? (
+              <>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+                  Đánh giá định hướng RIASEC
+                </h1>
+                <p className="mt-1 text-sm text-slate-600 dark:text-white/60">
+                  Chọn tất cả ý phù hợp — không có đúng/sai tuyệt đối.
+                </p>
+              </>
+            ) : (
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+                Kết quả Holland RIASEC
+              </h1>
+            )}
+          </div>
+          {!done && !result ? (
+            <Button variant="secondary" onClick={reset}>
+              Về phần giới thiệu
+            </Button>
+          ) : null}
         </div>
 
-        <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-fuchsia-500 transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="mt-2 text-xs text-slate-500 dark:text-white/60">
-          {done ? "Hoàn thành" : `Câu ${Math.min(step + 1, TOTAL_QUESTIONS)}/${TOTAL_QUESTIONS}`} · {progress}%
-          {step < SCHOOL_QUESTION_COUNT ? " · Câu về trường học" : " · Câu AI"}
-        </div>
+        {!result ? (
+          <>
+            <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-red-500 via-emerald-500 to-violet-500 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="mt-2 text-xs text-slate-500 dark:text-white/60">
+              {done ? "Hoàn thành" : `Câu ${step + 1}/${HOLLAND_QUESTION_COUNT}`}
+              {current && groupType ? ` · Nhóm ${groupType.labelVi} (${current.group})` : ""}
+            </div>
+          </>
+        ) : null}
 
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
             {error}
-            <Button variant="secondary" size="sm" className="mt-2" onClick={() => setRetryTick((t) => t + 1)}>
-              Thử lại
-            </Button>
           </div>
         ) : null}
 
         <AnimatePresence mode="popLayout">
-          {!done && !loading && current ? (
+          {!done && current ? (
             <motion.div
-              key={`q-${step}`}
-              initial={{ opacity: 0, y: 10 }}
+              key={current.id}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              exit={{ opacity: 0 }}
               className="mt-6"
             >
-              <Card>
-                <CardHeader className="flex flex-row items-start justify-between gap-4">
-                  <div className="text-base font-semibold text-slate-900 dark:text-white">
-                    {current.question}
+              <Card className="overflow-hidden">
+                <CardHeader className={cn("border-b", groupType?.bg)}>
+                  <div className={cn("text-xs font-bold uppercase tracking-wider", groupType?.color)}>
+                    Câu {step + 1} · Nhóm {current.group} — {groupType?.labelVi}
                   </div>
-                  <Sparkles className="h-5 w-5 shrink-0 text-violet-600 dark:text-fuchsia-300" />
+                  <div className="mt-2 text-base font-semibold text-slate-900 dark:text-white">{current.title}</div>
+                  <p className="text-sm text-slate-600 dark:text-white/60">{current.subtitle}</p>
                 </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="grid gap-3">
-                    {current.options.map((o) => {
-                      const selected = !useCustom && selectedId === o.id;
-                      return (
-                        <button
-                          key={o.id}
-                          type="button"
-                          onClick={() => {
-                            setUseCustom(false);
-                            setSelectedId(o.id);
-                          }}
-                          className={[
-                            "w-full rounded-2xl border px-4 py-3 text-left text-sm transition",
-                            selected
-                              ? "border-sky-400 bg-sky-50 dark:border-cyan-400/50 dark:bg-cyan-400/10"
-                              : "border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/6",
-                          ].join(" ")}
+                <CardContent className="grid gap-2 pt-4">
+                  {current.options.map((opt) => {
+                    const on = selected.has(opt.id);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => toggleOption(opt.id)}
+                        className={cn(
+                          "flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition",
+                          on
+                            ? "border-sky-400 bg-sky-50 dark:border-cyan-400/50 dark:bg-cyan-400/10"
+                            : "border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
+                            on
+                              ? "border-sky-500 bg-sky-500 text-white"
+                              : "border-slate-300 dark:border-white/25",
+                          )}
                         >
-                          <span className="font-medium text-slate-900 dark:text-white">
-                            {o.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-
-                    {step >= SCHOOL_QUESTION_COUNT ? (
-                      <div className="mt-2 rounded-2xl border border-dashed border-slate-300 p-4 dark:border-white/20">
-                        <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700 dark:text-white/80">
-                          <input
-                            type="checkbox"
-                            checked={useCustom}
-                            onChange={(e) => {
-                              setUseCustom(e.target.checked);
-                              if (e.target.checked) setSelectedId(null);
-                            }}
-                          />
-                          Tự viết (chỉ khi không có đáp án phù hợp)
-                        </label>
-                        {useCustom ? (
-                          <textarea
-                            value={customText}
-                            onChange={(e) => setCustomText(e.target.value)}
-                            placeholder="Mô tả ngắn câu trả lời của bạn…"
-                            className="mt-3 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400 dark:border-white/15 dark:bg-black/30 dark:text-white"
-                            rows={3}
-                          />
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-between gap-3">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        if (step === 0) return;
-                        setHistory((h) => h.slice(0, -1));
-                        setStep((s) => s - 1);
-                      }}
-                      disabled={step === 0}
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Quay lại
-                    </Button>
-                    <Button
-                      onClick={submitAnswer}
-                      disabled={useCustom ? !customText.trim() : !selectedId}
-                    >
-                      {step + 1 >= TOTAL_QUESTIONS ? "Xem kết quả" : "Tiếp theo"}
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
+                          {on ? <Check className="h-3.5 w-3.5" /> : null}
+                        </span>
+                        <span className="text-slate-800 dark:text-white/90">{opt.label}</span>
+                      </button>
+                    );
+                  })}
                 </CardContent>
               </Card>
+
+              <div className="mt-6 flex justify-between gap-3">
+                <Button variant="secondary" onClick={goBack}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Quay lại
+                </Button>
+                <Button onClick={submitQuestion} disabled={selected.size === 0}>
+                  {step + 1 >= HOLLAND_QUESTION_COUNT ? "Xem kết quả Holland" : "Câu tiếp theo"}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
             </motion.div>
           ) : null}
 
-          {loading && !done ? (
-            <div className="mt-10 flex flex-col items-center gap-3 text-slate-600 dark:text-white/60">
-              <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
-              <p className="text-sm">AI đang tạo câu hỏi {step + 1}…</p>
-            </div>
-          ) : null}
-
           {done && loadingResult ? (
-            <div className="mt-10 flex flex-col items-center gap-3 text-slate-600 dark:text-white/60">
-              <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-              <p className="text-sm">AI đang phân tích kết quả…</p>
+            <div className="mt-12 flex flex-col items-center gap-3 text-slate-600 dark:text-white/60">
+              <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
+              <p className="text-sm">Đang tính mã Holland và phân tích RIASEC…</p>
             </div>
           ) : null}
 
           {done && result && !loadingResult ? (
-            <motion.div
-              key="result"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-6"
-            >
-              <Card>
-                <CardHeader>
-                  <div className="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-800 dark:bg-fuchsia-500/20 dark:text-fuchsia-200">
-                    Kết quả phân tích
-                  </div>
-                  <div className="mt-3 text-xl font-semibold text-slate-900 dark:text-white">
-                    {result.title}
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/60">
-                    {result.summary}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-5 pt-2">
-                  {result.topTraits?.length ? (
-                    <div className="rounded-2xl border border-sky-200/70 bg-sky-50/80 p-4 dark:border-cyan-400/20 dark:bg-cyan-400/10">
-                      <div className="text-xs font-semibold uppercase tracking-wider text-sky-800 dark:text-cyan-200">
-                        Từ câu trả lời của bạn → LEXA phân tích
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {result.topTraits.map((t) => (
-                          <span
-                            key={t}
-                            className="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-800 dark:bg-white/10 dark:text-white/85"
-                          >
-                            {TRAIT_LABELS[t]}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {result.insights?.length ? (
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
-                        LEXA nhận thấy
-                      </div>
-                      <ul className="mt-2 space-y-2">
-                        {result.insights.map((s) => (
-                          <li
-                            key={s}
-                            className="flex gap-2 text-sm leading-6 text-slate-700 dark:text-white/80"
-                          >
-                            <span className="text-sky-600 dark:text-cyan-300">→</span>
-                            {s}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
-                      Vì vậy, các nghề phù hợp là
-                    </div>
-                    <div className="mt-3 grid gap-3">
-                      {result.careers?.map((c) => (
-                        <div
-                          key={c.id}
-                          className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="font-semibold text-slate-900 dark:text-white">
-                              {c.name}
-                            </div>
-                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800 dark:bg-cyan-400/20 dark:text-cyan-200">
-                              {c.matchPercent}%
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm text-slate-600 dark:text-white/60">{c.why}</p>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="mt-3"
-                            onClick={() => pickTargetCareer(c)}
-                          >
-                            Chọn làm mục tiêu → xem lộ trình
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
-                      Bước tiếp theo
-                    </div>
-                    <ul className="mt-2 grid gap-1 text-sm text-slate-700 dark:text-white/80">
-                      {result.nextSteps?.map((s) => (
-                        <li key={s}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <ButtonLink href="/" className="flex-1 justify-center" size="lg">
-                      Xem hồ sơ & lộ trình
-                    </ButtonLink>
-                    <Button onClick={reset} variant="secondary" size="lg" className="flex-1">
-                      Làm lại bài test
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+            <HollandResultView result={result} onReset={reset} />
           ) : null}
         </AnimatePresence>
       </div>

@@ -5,6 +5,7 @@
   "scripts": {
     "clean": "node scripts/clean-next.mjs",
     "logo:fix": "node scripts/remove-logo-bg.mjs",
+    "favicons": "node scripts/generate-favicons.mjs",
     "dev": "cross-env NEXT_DISABLE_FILE_SYSTEM_CACHE=1 next dev",
     "dev:fresh": "node scripts/clean-next.mjs && cross-env NEXT_DISABLE_FILE_SYSTEM_CACHE=1 next dev",
     "build": "next build",
@@ -13,9 +14,11 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@vercel/blob": "^2.4.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
+    "katex": "^0.17.0",
     "lucide-react": "^1.16.0",
     "next": "^14.2.35",
     "next-auth": "^4.24.14",

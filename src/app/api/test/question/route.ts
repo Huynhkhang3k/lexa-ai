@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { applyAiRateLimit } from "@/lib/api-guard";
 import { extractJson, generateText } from "@/lib/gemini";
+import { toUserFacingError } from "@/lib/user-errors";
 import {
   AI_QUESTION_COUNT,
   type AgeGroup,
   ageGroupPromptContext,
+  getFallbackAiQuestion,
   SCHOOL_QUESTION_COUNT,
   TOTAL_QUESTIONS,
 } from "@/lib/test-questions";
@@ -61,6 +64,9 @@ const JSON_OPTS = {
 
 export async function POST(req: Request) {
   try {
+    const limited = applyAiRateLimit(req, "test-q", 15);
+    if (limited) return limited;
+
     const body = (await req.json()) as Body;
     const index = body.questionIndex ?? 0;
     const ageGroup = body.ageGroup ?? "thcs";
@@ -116,32 +122,43 @@ Trả về JSON:
 Mỗi option phải có traits (1-2 từ): logic, tech, math, creative, art, design, communication, leadership, business, social, practical.`;
 
     let data: QuestionPayload;
+    let usedFallback = false;
     try {
       const raw = await generateText(prompt, JSON_OPTS);
       data = extractJson<QuestionPayload>(raw);
     } catch {
-      const raw2 = await generateText(`${prompt}\n\nCHỈ trả JSON thuần.`, {
-        ...JSON_OPTS,
-        generationConfig: { ...JSON_OPTS.generationConfig, temperature: 0.2 },
-      });
-      data = extractJson<QuestionPayload>(raw2);
+      try {
+        const raw2 = await generateText(`${prompt}\n\nCHỈ trả JSON thuần.`, {
+          ...JSON_OPTS,
+          generationConfig: { ...JSON_OPTS.generationConfig, temperature: 0.2 },
+        });
+        data = extractJson<QuestionPayload>(raw2);
+      } catch {
+        const fb = getFallbackAiQuestion(aiIndex);
+        data = { question: fb.question, options: fb.options };
+        usedFallback = true;
+      }
     }
 
     if (!data.question || !Array.isArray(data.options) || data.options.length < 4) {
-      throw new Error("AI trả về câu hỏi không hợp lệ");
+      const fb = getFallbackAiQuestion(aiIndex);
+      data = { question: fb.question, options: fb.options };
+      usedFallback = true;
     }
 
     return NextResponse.json({
       questionIndex: index,
       total: TOTAL_QUESTIONS,
       question: data.question,
+      fallback: usedFallback,
       options: data.options.slice(0, 4).map((o) => ({
         id: o.id,
         label: o.label,
         traits: normalizeTraits((o as { traits?: unknown }).traits),
       })),
-    });  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Lỗi không xác định";
+    });
+  } catch (e) {
+    const msg = toUserFacingError(e instanceof Error ? e.message : "Lỗi không xác định");
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

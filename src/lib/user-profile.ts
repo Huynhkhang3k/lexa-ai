@@ -1,12 +1,22 @@
 import type { GradeLevelId } from "./grade-level";
+import type { RiasecCode } from "./holland-riasec";
 import type { RoadmapStep } from "./roadmap";
 import type { TraitId, TraitScores } from "./test-scoring";
+import { asArray } from "./safe-storage";
 import {
   ALL_FEATURES,
   getActivityState,
   type ActivityFeature,
   type FeatureSnapshot,
 } from "./user-activity";
+
+export type HollandProfileResult = {
+  hollandCode: string;
+  radarValues: { code: RiasecCode; value: number }[];
+  groups: { code: RiasecCode; labelVi: string; score: number; percent: number }[];
+  topGroups: { code: RiasecCode; labelVi: string; score: number }[];
+  completedAt: string;
+};
 
 export type UserProfile = {
   displayName?: string;
@@ -16,6 +26,8 @@ export type UserProfile = {
   insights?: string[];
   strengths?: string[];
   suggestedCareers?: { id: string; name: string; matchPercent: number; why: string }[];
+  /** Kết quả Holland RIASEC mới nhất (hiển thị radar trang chủ). */
+  hollandResult?: HollandProfileResult;
   targetCareer?: { id: string; name: string };
   roadmap?: RoadmapStep[];
   skillsToDevelop?: string[];
@@ -32,11 +44,30 @@ function storageKeyForEmail(email: string) {
   return `${PROFILE_KEY}:${email.toLowerCase()}`;
 }
 
+function normalizeProfile(raw: unknown): UserProfile {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const p = raw as UserProfile;
+  const roadmap = asArray<RoadmapStep>(p.roadmap).filter(
+    (s) => s && typeof s.label === "string",
+  );
+  return {
+    ...p,
+    roadmap: roadmap.length ? roadmap : undefined,
+    topTraits: asArray<TraitId>(p.topTraits),
+    insights: asArray<string>(p.insights),
+    strengths: asArray<string>(p.strengths),
+    skillsToDevelop: asArray<string>(p.skillsToDevelop),
+    suggestedCareers: asArray<NonNullable<UserProfile["suggestedCareers"]>[number]>(
+      p.suggestedCareers,
+    ),
+  };
+}
+
 function readRaw(key: string): UserProfile {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as UserProfile) : {};
+    return raw ? normalizeProfile(JSON.parse(raw)) : {};
   } catch {
     return {};
   }
@@ -50,6 +81,11 @@ function writeProfile(profile: UserProfile) {
   if (typeof window === "undefined") return;
   localStorage.setItem(activeProfileKey, JSON.stringify(profile));
   window.dispatchEvent(new CustomEvent("lexa-profile-updated"));
+}
+
+/** Áp dụng dữ liệu từ cloud sync */
+export function applyRemoteProfile(profile: UserProfile) {
+  writeProfile(profile);
 }
 
 /** Gắn hồ sơ với email đăng nhập; gộp dữ liệu ẩn danh nếu có */
@@ -90,11 +126,16 @@ export function getUserProfile(): UserProfile {
 
 export function saveUserProfile(patch: Partial<UserProfile>) {
   writeProfile({ ...readProfile(), ...patch });
+  if (typeof window !== "undefined") {
+    void import("./user-cloud-sync").then((m) => {
+      if (m.getLoggedInEmail()) m.persistUserDataImmediate(m.getLoggedInEmail() ?? undefined);
+    });
+  }
 }
 
 export function hasCompletedAssessment(): boolean {
   const p = readProfile();
-  return Boolean(p.testCompletedAt && p.suggestedCareers?.length);
+  return Boolean(p.testCompletedAt && (p.hollandResult?.hollandCode || p.suggestedCareers?.length));
 }
 
 export function hasTargetCareer(): boolean {
@@ -102,7 +143,8 @@ export function hasTargetCareer(): boolean {
 }
 
 export function hasRoadmap(): boolean {
-  return Boolean(readProfile().roadmap?.length && readProfile().targetCareer);
+  const p = readProfile();
+  return Boolean(Array.isArray(p.roadmap) && p.roadmap.length > 0 && p.targetCareer?.id);
 }
 
 export type ProgressMetric = {

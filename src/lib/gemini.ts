@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { cleanEnv } from "./env-sanitize";
 
 /**
  * API Key Rotation:
@@ -65,15 +66,17 @@ function readApiKeys(): string[] {
     process.env.GEMINI_API_KEY_2,
     process.env.GEMINI_API_KEY_3,
     process.env.GEMINI_API_KEY_4,
+    process.env.GEMINI_API_KEY,
     process.env.GOOGLE_API_KEY,
-  ].filter(Boolean) as string[];
+  ]
+    .map((k) => cleanEnv(k))
+    .filter(Boolean);
 
-  // Loại trùng (nếu set cả GEMINI_API_KEY_1 và GOOGLE_API_KEY cùng giá trị)
   const unique = [...new Set(keys)];
 
   if (unique.length === 0) {
     throw new Error(
-      "Chưa cấu hình API key. Thêm GEMINI_API_KEY_1 (hoặc GOOGLE_API_KEY) vào .env.local hoặc Vercel Environment Variables.",
+      "Chưa cấu hình khóa AI. Thêm GEMINI_API_KEY_1 vào cài đặt máy chủ (Vercel hoặc .env.local).",
     );
   }
   return unique;
@@ -124,6 +127,43 @@ export function getGenerativeModel(options?: {
   return { model, keyIndex: chosen.index, modelName };
 }
 
+function repairJsonEscapes(json: string): string {
+  let result = "";
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i];
+    if (ch !== "\\" || i + 1 >= json.length) {
+      result += ch;
+      continue;
+    }
+    const next = json[i + 1]!;
+    if ('"\\/bfnrt'.includes(next)) {
+      result += ch + next;
+      i++;
+    } else if (next === "u" && i + 5 < json.length) {
+      const hex = json.slice(i + 2, i + 6);
+      if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+        result += json.slice(i, i + 6);
+        i += 5;
+      } else {
+        result += "\\\\u";
+        i++;
+      }
+    } else {
+      result += "\\\\" + next;
+      i++;
+    }
+  }
+  return result;
+}
+
+function parseJsonSlice<T>(slice: string): T {
+  try {
+    return JSON.parse(slice) as T;
+  } catch {
+    return JSON.parse(repairJsonEscapes(slice)) as T;
+  }
+}
+
 export function extractJson<T>(text: string): T {
   const cleaned = text.replace(/```json\n?|\n?```/g, "").trim();
   const start = cleaned.indexOf("{");
@@ -140,7 +180,7 @@ export function extractJson<T>(text: string): T {
     if (cleaned[i] === open) depth++;
     if (cleaned[i] === close) depth--;
     if (depth === 0) {
-      return JSON.parse(cleaned.slice(sliceStart, i + 1)) as T;
+      return parseJsonSlice<T>(cleaned.slice(sliceStart, i + 1));
     }
   }
   throw new Error("JSON không hợp lệ từ AI");
@@ -165,17 +205,12 @@ export async function generateText(
   const backoffMs = Math.max(150, opts?.backoffMs ?? 350);
   const timeoutMs = Math.max(2000, opts?.timeoutMs ?? 25000);
 
-  const requestedModel = opts?.model ?? "gemini-1.5-flash"; // theo ý tưởng bạn
-  const modelCandidates: ModelName[] = [
-    requestedModel,
-    DEFAULT_MODEL,
-    ...FALLBACK_MODELS,
-  ].filter(Boolean);
+  const requestedModel = opts?.model ?? DEFAULT_MODEL;
+  const modelCandidates = [...new Set([requestedModel, DEFAULT_MODEL, ...FALLBACK_MODELS])];
 
   const errors: string[] = [];
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    // Try requested model first; if model unsupported, walk fallback list
+  for (let attempt = 0; attempt < Math.max(maxRetries, 2); attempt++) {
     for (const modelName of modelCandidates) {
       try {
         const { model } = getGenerativeModel({
@@ -196,23 +231,15 @@ export async function generateText(
         const msg = getErrorMessage(e);
         errors.push(`${modelName}: ${msg}`);
 
-        if (isQuota429(e)) {
-          // đổi key (attempt tiếp theo)
-          break;
-        }
-
-        if (isOverloaded503(e) || isRetryableNetwork(e)) {
-          // model quá tải / lỗi mạng: đổi key (attempt tiếp theo) + backoff ngắn
-          await sleep(backoffMs * (attempt + 1));
-          break;
-        }
-
         if (isModelUnsupported(e)) {
-          // thử model fallback tiếp theo
           continue;
         }
 
-        // lỗi khác: throw ngay
+        if (isQuota429(e) || isOverloaded503(e) || isRetryableNetwork(e)) {
+          await sleep(backoffMs * Math.min(attempt + 1, 3));
+          continue;
+        }
+
         throw e;
       }
     }
@@ -221,18 +248,31 @@ export async function generateText(
   const allQuota = errors.some((e) => e.includes("429") || e.includes("quota"));
   if (allQuota) {
     throw new Error(
-      "Gemini bị giới hạn rate/quota (429). Bạn có thể đợi 1–2 phút hoặc kiểm tra billing/quota trong Google AI Studio.",
+      "API Gemini đã hết quota tạm thời. Vui lòng thử lại sau 1–2 phút.",
     );
   }
 
   const overloaded = errors.some((e) => e.includes("503") || e.includes("high demand"));
   if (overloaded) {
     throw new Error(
-      "Gemini đang quá tải (503). Hãy thử lại sau 30–90 giây. Hệ thống đã tự retry/rotate key nhưng model vẫn đang high demand.",
+      "Model AI tạm quá tải — đã thử nhiều model dự phòng. Vui lòng gửi lại sau vài giây.",
+    );
+  }
+
+  const authFail = errors.some(
+    (e) =>
+      e.includes("401") ||
+      e.includes("403") ||
+      e.includes("API key") ||
+      e.includes("API_KEY_INVALID"),
+  );
+  if (authFail) {
+    throw new Error(
+      "Khóa API Gemini không hợp lệ. Kiểm tra GEMINI_API_KEY_1 trên Vercel hoặc .env.local.",
     );
   }
 
   throw new Error(
-    `Không gọi được Gemini. Có thể model/key không hợp lệ hoặc API chưa bật.\n${errors.slice(0, 5).join("\n")}`,
+    "Không kết nối được với AI. Vui lòng thử lại sau.",
   );
 }

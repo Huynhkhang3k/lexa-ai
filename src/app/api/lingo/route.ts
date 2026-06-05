@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyAiRateLimit } from "@/lib/api-guard";
 import { extractJson, generateText } from "@/lib/gemini";
 import {
   englishLevelContext,
@@ -51,7 +52,7 @@ function buildPrompt(
   const levelNote = `Người dùng: học sinh khối ${gradeLevelLabel(gradeLevel)}. ${englishLevelContext(gradeLevel)}`;
 
   if (mode === "translate") {
-    return `Dịch văn bản EN↔VI cho học sinh Việt Nam.
+    return `Dịch văn bản EN↔VIE cho học sinh Việt Nam.
 ${levelNote}
 Input: """${input}"""
 Nguồn: ${sourceLang} | Đích: ${targetLang}
@@ -111,9 +112,12 @@ function isValidResponse(mode: Body["mode"], json: LingoResponse): boolean {
 
 export async function POST(req: Request) {
   try {
+    const limited = applyAiRateLimit(req, "lingo", 20);
+    if (limited) return limited;
+
     const body = (await req.json()) as Body;
     const input = (body.input ?? "").trim();
-    if (!input) return NextResponse.json({ error: "Thiếu input" }, { status: 400 });
+    if (!input) return NextResponse.json({ error: "Vui lòng nhập nội dung" }, { status: 400 });
 
     const mode = body.mode;
     const sourceLang = body.sourceLang ?? "auto";

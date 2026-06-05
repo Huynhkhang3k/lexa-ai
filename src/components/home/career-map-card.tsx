@@ -17,6 +17,7 @@ import {
   saveCareerMap,
   type CareerMapData,
 } from "@/lib/user-activity";
+import { getHistorySummaryForAi } from "@/lib/user-history";
 
 const ROWS: { key: keyof CareerMapData; label: string }[] = [
   { key: "traits", label: "Tố chất" },
@@ -55,7 +56,7 @@ export function CareerMapCard() {
       );
       setHint(
         remaining > 0
-          ? `Dùng thêm ${remaining} tính năng (${unused.map((f) => FEATURE_LABELS[f]).join(", ")}) để AI phân tích.`
+          ? `Dùng thêm ${remaining} tính năng (${unused.map((f) => FEATURE_LABELS[f]).join(", ")}) để phân tích.`
           : "",
       );
       return;
@@ -70,7 +71,7 @@ export function CareerMapCard() {
 
     async function analyze() {
       setLoading(true);
-      setHint("AI đang phân tích…");
+      setHint("Đang phân tích…");
       try {
         const payload = getActivityPayload();
         const res = await fetch("/api/career-map", {
@@ -79,6 +80,7 @@ export function CareerMapCard() {
           body: JSON.stringify({
             ...payload,
             gradeLevel: gradeLevel ?? "thcs",
+            historySummary: getHistorySummaryForAi(),
           }),
         });
         const data = await res.json();
@@ -103,6 +105,14 @@ export function CareerMapCard() {
   }, [usedCount, gradeLevel]);
 
   const locked = usedCount < MIN_FEATURES_FOR_MAP;
+
+  function displayValue(key: keyof CareerMapData) {
+    const val = map[key];
+    if (locked || val === "Chưa phân tích" || val === "__") {
+      return "—";
+    }
+    return val;
+  }
 
   return (
     <Card>
@@ -132,12 +142,12 @@ export function CareerMapCard() {
               <span
                 className={[
                   "text-right text-xs font-medium",
-                  locked || map[row.key] === "__"
-                    ? "text-slate-400 dark:text-white/35"
+                  locked || map[row.key] === "__" || map[row.key] === "Chưa phân tích"
+                    ? "text-slate-400 dark:text-white/35 italic"
                     : "text-slate-800 dark:text-white/80",
                 ].join(" ")}
               >
-                {map[row.key]}
+                {displayValue(row.key)}
               </span>
             </div>
           ))}

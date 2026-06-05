@@ -1,0 +1,78 @@
+import type { RiasecCode } from "./holland-riasec";
+
+export type CareerRiasec = {
+  riasecPrimary: RiasecCode;
+  riasecSecondary: RiasecCode;
+};
+
+/** Gán nhóm Holland chính / phụ cho từng nghề trong thư viện */
+export const CAREER_RIASEC: Record<string, CareerRiasec> = {
+  se: { riasecPrimary: "I", riasecSecondary: "R" },
+  ux: { riasecPrimary: "A", riasecSecondary: "I" },
+  da: { riasecPrimary: "I", riasecSecondary: "C" },
+  mk: { riasecPrimary: "E", riasecSecondary: "A" },
+  med: { riasecPrimary: "I", riasecSecondary: "S" },
+  teacher: { riasecPrimary: "S", riasecSecondary: "A" },
+  law: { riasecPrimary: "E", riasecSecondary: "I" },
+  arch: { riasecPrimary: "A", riasecSecondary: "R" },
+  nurse: { riasecPrimary: "S", riasecSecondary: "I" },
+  mech: { riasecPrimary: "R", riasecSecondary: "I" },
+  creator: { riasecPrimary: "A", riasecSecondary: "E" },
+  account: { riasecPrimary: "C", riasecSecondary: "E" },
+  "civil-eng": { riasecPrimary: "R", riasecSecondary: "I" },
+  "elec-eng": { riasecPrimary: "R", riasecSecondary: "I" },
+  pharm: { riasecPrimary: "I", riasecSecondary: "C" },
+  dentist: { riasecPrimary: "I", riasecSecondary: "R" },
+  vet: { riasecPrimary: "I", riasecSecondary: "S" },
+  psych: { riasecPrimary: "S", riasecSecondary: "I" },
+  journalist: { riasecPrimary: "A", riasecSecondary: "E" },
+  translator: { riasecPrimary: "A", riasecSecondary: "C" },
+  hr: { riasecPrimary: "S", riasecSecondary: "E" },
+  sales: { riasecPrimary: "E", riasecSecondary: "S" },
+  finance: { riasecPrimary: "C", riasecSecondary: "I" },
+  banker: { riasecPrimary: "C", riasecSecondary: "E" },
+  "real-estate": { riasecPrimary: "E", riasecSecondary: "C" },
+  chef: { riasecPrimary: "R", riasecSecondary: "A" },
+  hotel: { riasecPrimary: "E", riasecSecondary: "S" },
+  fashion: { riasecPrimary: "A", riasecSecondary: "E" },
+  interior: { riasecPrimary: "A", riasecSecondary: "R" },
+  "game-dev": { riasecPrimary: "I", riasecSecondary: "A" },
+  "game-art": { riasecPrimary: "A", riasecSecondary: "I" },
+  cybersec: { riasecPrimary: "I", riasecSecondary: "C" },
+  devops: { riasecPrimary: "I", riasecSecondary: "R" },
+  "ai-eng": { riasecPrimary: "I", riasecSecondary: "R" },
+  pm: { riasecPrimary: "E", riasecSecondary: "I" },
+  qa: { riasecPrimary: "C", riasecSecondary: "I" },
+  ba: { riasecPrimary: "I", riasecSecondary: "E" },
+  logistics: { riasecPrimary: "C", riasecSecondary: "E" },
+  agri: { riasecPrimary: "R", riasecSecondary: "I" },
+  env: { riasecPrimary: "I", riasecSecondary: "R" },
+  energy: { riasecPrimary: "R", riasecSecondary: "I" },
+  pilot: { riasecPrimary: "R", riasecSecondary: "I" },
+  "flight-att": { riasecPrimary: "S", riasecSecondary: "E" },
+  police: { riasecPrimary: "R", riasecSecondary: "E" },
+  firefighter: { riasecPrimary: "R", riasecSecondary: "S" },
+  "social-worker": { riasecPrimary: "S", riasecSecondary: "E" },
+  event: { riasecPrimary: "E", riasecSecondary: "A" },
+  photo: { riasecPrimary: "A", riasecSecondary: "R" },
+  music: { riasecPrimary: "A", riasecSecondary: "S" },
+  actor: { riasecPrimary: "A", riasecSecondary: "E" },
+  "sport-coach": { riasecPrimary: "S", riasecSecondary: "R" },
+  fitness: { riasecPrimary: "S", riasecSecondary: "R" },
+  ecom: { riasecPrimary: "E", riasecSecondary: "C" },
+  "supply-qc": { riasecPrimary: "C", riasecSecondary: "R" },
+  "bio-tech": { riasecPrimary: "I", riasecSecondary: "C" },
+  optometrist: { riasecPrimary: "I", riasecSecondary: "S" },
+  physio: { riasecPrimary: "S", riasecSecondary: "R" },
+  nutrition: { riasecPrimary: "S", riasecSecondary: "I" },
+  "civil-servant": { riasecPrimary: "C", riasecSecondary: "S" },
+  diplomat: { riasecPrimary: "E", riasecSecondary: "S" },
+  startup: { riasecPrimary: "E", riasecSecondary: "I" },
+  blockchain: { riasecPrimary: "I", riasecSecondary: "E" },
+  "iot-eng": { riasecPrimary: "I", riasecSecondary: "R" },
+  robotics: { riasecPrimary: "R", riasecSecondary: "I" },
+};
+
+export function getCareerRiasec(careerId: string): CareerRiasec {
+  return CAREER_RIASEC[careerId] ?? { riasecPrimary: "I", riasecSecondary: "A" };
+}

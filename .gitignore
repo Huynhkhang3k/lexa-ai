@@ -47,3 +47,6 @@ next-env.d.ts
 /data/users.json
 
 .vercel
+
+.env*
+.vercel

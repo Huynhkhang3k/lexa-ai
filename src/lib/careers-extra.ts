@@ -1,6 +1,6 @@
-import type { Career } from "./careers-types";
+import type { CareerSeed } from "./careers-types";
 
-export const EXTRA_CAREERS: Omit<Career, "field">[] = [
+export const EXTRA_CAREERS: CareerSeed[] = [
   {
     id: "civil-eng",
     name: "Kỹ sư xây dựng",
@@ -65,7 +65,7 @@ export const EXTRA_CAREERS: Omit<Career, "field">[] = [
   },
   {
     id: "psych",
-    name: "Chuyên viên tâm lý",
+    name: "Bác sĩ tâm lý",
     tagline: "Đồng hành cảm xúc và hành vi",
     highlight: "Hot",
     description: "Tư vấn tâm lý học đường, lâm sàng hoặc tổ chức; hỗ trợ stress, lo âu, định hướng.",

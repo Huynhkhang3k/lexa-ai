@@ -8,16 +8,24 @@ import {
   getUserProfile,
   hasCompletedAssessment,
   hasRoadmap,
+  type UserProfile,
 } from "@/lib/user-profile";
+import { CareerImage } from "@/components/career/career-image";
+import { hasCareerImage } from "@/lib/career-images";
 import { cn } from "@/lib/utils";
 
 export function CareerRoadmapSection() {
-  const [profile, setProfile] = React.useState(getUserProfile);
-  const ready = hasRoadmap();
-  const assessed = hasCompletedAssessment();
+  const [profile, setProfile] = React.useState<UserProfile>({});
+  const [ready, setReady] = React.useState(false);
+  const [assessed, setAssessed] = React.useState(false);
 
   React.useEffect(() => {
-    const refresh = () => setProfile(getUserProfile());
+    const refresh = () => {
+      setProfile(getUserProfile());
+      setReady(hasRoadmap());
+      setAssessed(hasCompletedAssessment());
+    };
+    refresh();
     window.addEventListener("lexa-profile-updated", refresh);
     window.addEventListener("lexa-activity-updated", refresh);
     return () => {
@@ -30,7 +38,7 @@ export function CareerRoadmapSection() {
     <section id="roadmap" className="scroll-mt-24">
       <SectionHeading
         eyebrow="Lộ trình phát triển"
-        title="AI Career Roadmap"
+        title="Lộ trình nghề nghiệp"
         description={
           ready
             ? "Lộ trình được tạo từ kết quả đánh giá và nghề mục tiêu bạn đã chọn."
@@ -69,18 +77,32 @@ export function CareerRoadmapSection() {
         </div>
       ) : (
         <div className="relative mt-8 overflow-hidden rounded-3xl border border-sky-200/70 bg-gradient-to-br from-sky-50/90 via-white to-violet-50/60 p-6 dark:border-cyan-500/25 dark:from-cyan-500/[0.08] dark:via-[#0a0b14] dark:to-fuchsia-500/[0.06] sm:p-10">
+          {profile.targetCareer?.id && hasCareerImage(profile.targetCareer.id) ? (
+            <CareerImage
+              careerId={profile.targetCareer.id}
+              alt={profile.targetCareer.name}
+              className="mx-auto max-w-2xl shadow-lg ring-1 ring-sky-200/80 dark:ring-cyan-400/20"
+              priority
+              sizes="(max-width: 768px) 100vw, 672px"
+            />
+          ) : null}
           <div className="text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/90 px-4 py-1.5 text-xs font-medium dark:border-cyan-400/25 dark:bg-white/10">
               <Sparkles className="h-3.5 w-3.5 text-sky-600 dark:text-cyan-300" />
               Mục tiêu của bạn
             </div>
-            <h3 className="mt-4 text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+            <h3
+              className={cn(
+                "text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl",
+                profile.targetCareer?.id && hasCareerImage(profile.targetCareer.id) ? "mt-5" : "mt-4",
+              )}
+            >
               {profile.targetCareer?.name}
             </h3>
           </div>
 
           <div className="relative mx-auto mt-8 max-w-xl space-y-3">
-            {profile.roadmap?.map((step, i) => (
+            {(Array.isArray(profile.roadmap) ? profile.roadmap : []).map((step, i) => (
               <div key={`${step.label}-${i}`} className="flex justify-center">
                 <div
                   className={cn(
@@ -108,7 +130,7 @@ export function CareerRoadmapSection() {
                           step.isGoal ? "text-white" : "text-slate-900 dark:text-white",
                         )}
                       >
-                        {step.label}
+                        {step.label ?? ""}
                       </div>
                       <div
                         className={cn(
@@ -116,7 +138,7 @@ export function CareerRoadmapSection() {
                           step.isGoal ? "text-white/85" : "text-slate-500 dark:text-white/55",
                         )}
                       >
-                        {step.focus}
+                        {step.focus ?? ""}
                       </div>
                     </div>
                   </div>

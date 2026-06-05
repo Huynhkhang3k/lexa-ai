@@ -19,9 +19,11 @@ declare global {
   var __lexaUsers: StoredUser[] | undefined;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const USERS_FILE = path.join(DATA_DIR, "users.json");
 const IS_VERCEL = Boolean(process.env.VERCEL);
+const DATA_DIR = path.join(process.cwd(), "data");
+const USERS_FILE = IS_VERCEL
+  ? path.join("/tmp", "lexa-users.json")
+  : path.join(DATA_DIR, "users.json");
 
 function loadFromEnv(): StoredUser[] {
   const raw = process.env.LEXA_AUTH_USERS?.trim();
@@ -46,7 +48,7 @@ async function ensureStore(): Promise<StoredUser[]> {
   if (global.__lexaUsers) return global.__lexaUsers;
 
   const envUsers = loadFromEnv();
-  const fileUsers = IS_VERCEL ? [] : await loadFromFile();
+  const fileUsers = await loadFromFile();
   const merged = [...fileUsers];
 
   for (const u of envUsers) {
@@ -62,12 +64,12 @@ async function ensureStore(): Promise<StoredUser[]> {
 async function writeStore(users: StoredUser[]) {
   global.__lexaUsers = users;
 
-  if (IS_VERCEL) {
-    return;
+  try {
+    await fs.mkdir(path.dirname(USERS_FILE), { recursive: true });
+    await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), "utf8");
+  } catch {
+    // Vercel /tmp hoặc môi trường read-only — vẫn giữ trong bộ nhớ phiên hiện tại
   }
-
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), "utf8");
 }
 
 export async function findUserByEmail(email: string): Promise<StoredUser | null> {

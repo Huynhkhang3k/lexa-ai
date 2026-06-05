@@ -1,5 +1,7 @@
-import type { Career } from "./careers-types";
+import type { Career, CareerSeed } from "./careers-types";
 import { getCareerField } from "./career-fields";
+import { getCareerImageUrl } from "./career-images";
+import { getCareerRiasec } from "./careers-riasec";
 import { EXTRA_CAREERS } from "./careers-extra";
 
 export type { Career } from "./careers-types";
@@ -10,11 +12,21 @@ export {
   type CareerFieldId,
 } from "./career-fields";
 
-function withField(c: Omit<Career, "field">): Career {
-  return { ...c, field: getCareerField(c.id) };
+export type { CareerSeed } from "./careers-types";
+
+function withField(c: CareerSeed): Career {
+  const imageUrl = getCareerImageUrl(c.id);
+  const { riasecPrimary, riasecSecondary } = getCareerRiasec(c.id);
+  return {
+    ...c,
+    field: getCareerField(c.id),
+    riasecPrimary,
+    riasecSecondary,
+    ...(imageUrl ? { imageUrl } : {}),
+  };
 }
 
-const BASE_CAREERS: Omit<Career, "field">[] = [
+const BASE_CAREERS: CareerSeed[] = [
   {
     id: "se",
     name: "Kỹ sư phần mềm",
@@ -126,16 +138,16 @@ const BASE_CAREERS: Omit<Career, "field">[] = [
   },
   {
     id: "nurse",
-    name: "Điều dưỡng",
-    tagline: "Hỗ trợ điều trị và chăm sóc bệnh nhân",
+    name: "Y tá",
+    tagline: "Chăm sóc và hỗ trợ điều trị bệnh nhân",
     description:
-      "Theo dõi sức khoẻ, hỗ trợ bác sĩ, tư vấn chăm sóc cho người bệnh và gia đình.",
+      "Theo dõi sức khoẻ, hỗ trợ bác sĩ, chăm sóc người bệnh và gia đình với sự tỉ mỉ và bình tĩnh.",
     skills: ["Đồng cảm", "Kỷ luật", "Làm việc ca", "Giao tiếp"],
     averageSalary: "8–20 triệu/tháng (VN)",
     relatedSubjects: ["Sinh học", "Hoá", "GDCD"],
     opportunities: ["Bệnh viện", "Chăm sóc tại nhà", "Du học nghề"],
     workEnvironment: "Bệnh viện, phòng khám, viện dưỡng lão",
-    studyPath: "Điều dưỡng · Trung cấp y · Liên thông đại học",
+    studyPath: "Y tá · Điều dưỡng · Trung cấp y · Liên thông đại học",
   },
   {
     id: "mech",
@@ -152,8 +164,8 @@ const BASE_CAREERS: Omit<Career, "field">[] = [
   },
   {
     id: "creator",
-    name: "Sáng tạo nội dung",
-    tagline: "Sáng tạo nội dung video, social",
+    name: "Nhà sáng tạo nội dung",
+    tagline: "Sản xuất video, bài viết và nội dung social",
     highlight: "Linh hoạt",
     description:
       "Sản xuất video, bài viết, livestream; xây dựng thương hiệu cá nhân hoặc cho brand.",

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
 import { AnimatedGradient } from "@/components/ui/animated-gradient";
-import { LEXA_LOGO_URL } from "@/lib/brand";
 
 const fontSans = Inter({
   variable: "--font-sans",
@@ -18,12 +18,24 @@ const fontMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LEXA AI — Hệ sinh thái học tập & phát triển tương lai",
+  title: "LEXA AI",
   description:
     "Nền tảng AI toàn diện cho học sinh Việt Nam: khám phá bản thân, định hướng nghề nghiệp, trợ lý học tập, luyện tập và dịch thuật — tất cả trong một hệ sinh thái.",
+  openGraph: {
+    title: "LEXA AI",
+  },
+  twitter: {
+    title: "LEXA AI",
+  },
   icons: {
-    icon: LEXA_LOGO_URL,
-    apple: LEXA_LOGO_URL,
+    icon: [
+      { url: "/icons/favicon.ico", sizes: "any" },
+      { url: "/icons/icon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-180.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

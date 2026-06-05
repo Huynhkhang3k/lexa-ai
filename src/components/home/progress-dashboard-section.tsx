@@ -3,15 +3,22 @@
 import * as React from "react";
 import { BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { ButtonLink } from "@/components/ui/button";
 import { SectionHeading } from "./section-heading";
-import { computeProgressMetrics } from "@/lib/user-profile";
+import { computeProgressMetrics, type ProgressMetric } from "@/lib/user-profile";
+
+const EMPTY_METRICS: ProgressMetric[] = [
+  { label: "Đánh giá bản thân", value: 0, color: "bg-sky-500" },
+  { label: "Khám phá nghề nghiệp", value: 0, color: "bg-violet-500" },
+  { label: "Kỹ năng cần học", value: 0, color: "bg-fuchsia-500" },
+  { label: "Mục tiêu nghề nghiệp", value: 0, color: "bg-blue-500" },
+];
 
 export function ProgressDashboardSection() {
-  const [metrics, setMetrics] = React.useState(computeProgressMetrics);
+  const [metrics, setMetrics] = React.useState(EMPTY_METRICS);
 
   React.useEffect(() => {
     const refresh = () => setMetrics(computeProgressMetrics());
+    refresh();
     window.addEventListener("lexa-profile-updated", refresh);
     window.addEventListener("lexa-activity-updated", refresh);
     return () => {
@@ -22,6 +29,10 @@ export function ProgressDashboardSection() {
 
   const overall = Math.round(metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length);
   const isEmpty = overall === 0;
+
+  if (isEmpty) {
+    return null;
+  }
 
   return (
     <section id="progress" className="scroll-mt-24">
@@ -45,31 +56,22 @@ export function ProgressDashboardSection() {
         </CardHeader>
 
         <CardContent className="p-5">
-          {isEmpty ? (
-            <div className="py-6 text-center text-sm text-slate-600 dark:text-white/60">
-              Chưa có dữ liệu. Bắt đầu bài đánh giá để kích hoạt dashboard.
-              <div className="mt-4">
-                <ButtonLink href="/test">Bắt đầu đánh giá</ButtonLink>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-5 sm:grid-cols-2">
-              {metrics.map((metric) => (
-                <div key={metric.label}>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{metric.label}</span>
-                    <span className="font-semibold">{metric.value}%</span>
-                  </div>
-                  <div className="mt-2 h-2.5 rounded-full bg-slate-200 dark:bg-white/10">
-                    <div
-                      className={`h-full rounded-full ${metric.color}`}
-                      style={{ width: `${metric.value}%` }}
-                    />
-                  </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {metrics.map((metric) => (
+              <div key={metric.label}>
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium">{metric.label}</span>
+                  <span className="font-semibold">{metric.value}%</span>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="mt-2 h-2.5 rounded-full bg-slate-200 dark:bg-white/10">
+                  <div
+                    className={`h-full rounded-full ${metric.color}`}
+                    style={{ width: `${metric.value}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </section>

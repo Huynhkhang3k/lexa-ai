@@ -7,6 +7,9 @@ import { CareerMapCard } from "@/components/home/career-map-card";
 import { CareerPreviewSection } from "@/components/home/career-preview-section";
 import { CareerRoadmapSection } from "@/components/home/career-roadmap-section";
 import { EcosystemSection } from "@/components/home/ecosystem-section";
+import { AssessmentMethodologySection } from "@/components/holland/assessment-methodology-section";
+import { HollandLatestResultSection } from "@/components/home/holland-latest-result-section";
+import { HollandRiasecSection } from "@/components/home/holland-riasec-section";
 import { JourneySection } from "@/components/home/journey-section";
 import { PersonalProfileSection } from "@/components/home/personal-profile-section";
 import { ProgressDashboardSection } from "@/components/home/progress-dashboard-section";
@@ -45,15 +48,17 @@ export default function Home() {
                 <strong className="font-semibold text-slate-800 dark:text-white/90">
                   LEXA AI
                 </strong>{" "}
-                là hệ sinh thái học tập dành cho học sinh Việt Nam — không phải tập hợp công
-                cụ rời rạc. Bắt đầu bằng bài test, nhận lộ trình cá nhân, học và luyện tập cùng
-                AI, rồi theo dõi tiến độ phát triển mỗi ngày.
+                là hệ sinh thái học tập dành cho học sinh Việt Nam. Bắt đầu bằng bài test{" "}
+                <strong className="font-semibold text-slate-800 dark:text-white/90">
+                  Holland RIASEC (18 câu)
+                </strong>
+                , nhận mã định hướng và lộ trình nghề, học cùng AI và theo dõi tiến độ mỗi ngày.
               </p>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 {[
                   { q: "LEXA là gì?", a: "Hệ sinh thái phát triển toàn diện" },
-                  { q: "Bắt đầu từ đâu?", a: "Bài test khám phá bản thân" },
+                  { q: "Bắt đầu từ đâu?", a: "Test Holland RIASEC — 18 câu" },
                   { q: "Vì sao quay lại?", a: "Theo dõi hành trình cá nhân" },
                 ].map((item) => (
                   <div
@@ -81,7 +86,7 @@ export default function Home() {
                   size="lg"
                   className="justify-center"
                 >
-                  Xem AI Career Roadmap
+                  Xem lộ trình nghề nghiệp
                 </ButtonLink>
               </div>
             </div>
@@ -120,6 +125,9 @@ export default function Home() {
         </section>
 
         <JourneySection />
+        <HollandRiasecSection />
+        <HollandLatestResultSection />
+        <AssessmentMethodologySection />
         <CareerRoadmapSection />
         <SampleAnalysisSection />
         <PersonalProfileSection />

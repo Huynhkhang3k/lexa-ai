@@ -80,12 +80,12 @@ export function chatAssistantContext(id: GradeLevelId): string {
   }
   if (id === "thcs") {
     return `${base}
-- Trả lời vừa phải, chia bước rõ ràng.
-- Toán/Lý/Hóa: dùng công thức và kiến thức chương trình THCS (lớp 6–9).
+- Trả lời đầy đủ, có thể viết bài mẫu/hội thoại/đoạn văn khi học sinh yêu cầu.
+- Toán/Lý/Hóa: giải thích và làm bài kèm các bước rõ ràng.
 - Tiếng Anh: ${eng}`;
   }
   return `${base}
-- Trả lời chi tiết, có thể phân tích sâu và gợi ý mở rộng.
+- Trả lời chi tiết, phân tích sâu; hoàn thành trọn vẹn bài viết, hội thoại, luận điểm khi được yêu cầu.
 - Toán/Lý/Hóa: dùng công thức và kiến thức THPT (lớp 10–12), có thể liên hệ đề thi THPTQG.
 - Tiếng Anh: ${eng}`;
 }

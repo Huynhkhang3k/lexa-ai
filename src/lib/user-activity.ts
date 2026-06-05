@@ -1,3 +1,5 @@
+import { asArray } from "./safe-storage";
+
 export type ActivityFeature = "test" | "translate" | "chat" | "practice";
 
 export type CareerMapData = {
@@ -31,7 +33,7 @@ export type FeatureSnapshot = {
   };
 };
 
-type StoredActivity = {
+export type StoredActivityPayload = {
   used: ActivityFeature[];
   snapshots: FeatureSnapshot;
   careerMap: CareerMapData | null;
@@ -39,38 +41,114 @@ type StoredActivity = {
   mapSchemaVersion?: number;
 };
 
+type StoredActivity = StoredActivityPayload;
+
 const STORAGE_KEY = "lexa-user-activity";
 export const MIN_FEATURES_FOR_MAP = 2;
 export const MAP_SCHEMA_VERSION = 4;
 
+let activeActivityKey = STORAGE_KEY;
+
+function storageKeyForEmail(email: string) {
+  return `${STORAGE_KEY}:${email.toLowerCase()}`;
+}
+
 export const EMPTY_MAP: CareerMapData = {
-  traits: "__",
-  style: "__",
-  goal: "__",
+  traits: "Chưa phân tích",
+  style: "Chưa phân tích",
+  goal: "Chưa phân tích",
 };
 
-function readStore(): StoredActivity {
-  if (typeof window === "undefined") {
-    return { used: [], snapshots: {}, careerMap: null, analyzedKey: null };
-  }
+const VALID_FEATURES = new Set<ActivityFeature>(["test", "translate", "chat", "practice"]);
+
+function normalizeActivity(raw: unknown): StoredActivity {
+  const empty: StoredActivity = {
+    used: [],
+    snapshots: {},
+    careerMap: null,
+    analyzedKey: null,
+  };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return empty;
+  const p = raw as StoredActivity;
+  const used = asArray<unknown>(p.used).filter(
+    (f): f is ActivityFeature => typeof f === "string" && VALID_FEATURES.has(f as ActivityFeature),
+  );
+  const snapshots =
+    p.snapshots && typeof p.snapshots === "object" && !Array.isArray(p.snapshots)
+      ? p.snapshots
+      : {};
+  return {
+    used,
+    snapshots,
+    careerMap: p.careerMap ?? null,
+    analyzedKey: typeof p.analyzedKey === "string" ? p.analyzedKey : null,
+    mapSchemaVersion: p.mapSchemaVersion,
+  };
+}
+
+function parseActivityJson(raw: string | null): StoredActivity {
+  if (!raw) return { used: [], snapshots: {}, careerMap: null, analyzedKey: null };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { used: [], snapshots: {}, careerMap: null, analyzedKey: null };
-    const parsed = JSON.parse(raw) as StoredActivity;
-    return {
-      used: parsed.used ?? [],
-      snapshots: parsed.snapshots ?? {},
-      careerMap: parsed.careerMap ?? null,
-      analyzedKey: parsed.analyzedKey ?? null,
-      mapSchemaVersion: parsed.mapSchemaVersion,
-    };
+    return normalizeActivity(JSON.parse(raw));
   } catch {
     return { used: [], snapshots: {}, careerMap: null, analyzedKey: null };
   }
 }
 
+function readStore(): StoredActivity {
+  if (typeof window === "undefined") {
+    return { used: [], snapshots: {}, careerMap: null, analyzedKey: null };
+  }
+  return parseActivityJson(localStorage.getItem(activeActivityKey));
+}
+
 function writeStore(data: StoredActivity) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(activeActivityKey, JSON.stringify(data));
+  window.dispatchEvent(new CustomEvent("lexa-activity-updated"));
+  if (typeof window !== "undefined") {
+    void import("./user-cloud-sync").then((m) => {
+      const email = m.getLoggedInEmail();
+      if (email) m.persistUserDataDebounced(email, 2000);
+    });
+  }
+}
+
+/** Áp dụng dữ liệu từ cloud sync */
+export function applyRemoteActivity(data: StoredActivityPayload) {
+  writeStore(data);
+}
+
+function mergeActivity(a: StoredActivity, b: StoredActivity): StoredActivity {
+  const used = [...new Set([...a.used, ...b.used])];
+  const snapshots: FeatureSnapshot = { ...b.snapshots, ...a.snapshots };
+  return {
+    used,
+    snapshots,
+    careerMap: a.careerMap ?? b.careerMap,
+    analyzedKey: null,
+    mapSchemaVersion: MAP_SCHEMA_VERSION,
+  };
+}
+
+/** Gắn hoạt động với email đăng nhập */
+export function bindActivityToUser(email: string | null) {
+  if (typeof window === "undefined") return;
+
+  if (!email) {
+    activeActivityKey = STORAGE_KEY;
+    window.dispatchEvent(new CustomEvent("lexa-activity-updated"));
+    return;
+  }
+
+  const userKey = storageKeyForEmail(email);
+  const anon = parseActivityJson(localStorage.getItem(STORAGE_KEY));
+  const existing = parseActivityJson(localStorage.getItem(userKey));
+
+  const merged = mergeActivity(existing, anon);
+  if (merged.used.length || Object.keys(merged.snapshots).length) {
+    localStorage.setItem(userKey, JSON.stringify(merged));
+  }
+  activeActivityKey = userKey;
   window.dispatchEvent(new CustomEvent("lexa-activity-updated"));
 }
 
@@ -80,10 +158,11 @@ function activityKey(used: ActivityFeature[], snapshots: FeatureSnapshot): strin
 
 function isCompleteMap(map: CareerMapData | null): map is CareerMapData {
   if (!map) return false;
+  const locked = "Chưa phân tích";
   return Boolean(
-    map.traits?.trim() && map.traits !== "__" &&
-      map.style?.trim() && map.style !== "__" &&
-      map.goal?.trim() && map.goal !== "__",
+    map.traits?.trim() && map.traits !== locked &&
+      map.style?.trim() && map.style !== locked &&
+      map.goal?.trim() && map.goal !== locked,
   );
 }
 
@@ -121,6 +200,12 @@ export function saveCareerMap(map: CareerMapData) {
   store.analyzedKey = activityKey(store.used, store.snapshots);
   store.mapSchemaVersion = MAP_SCHEMA_VERSION;
   writeStore(store);
+  if (typeof window !== "undefined") {
+    void import("./user-cloud-sync").then((m) => {
+      const email = m.getLoggedInEmail();
+      if (email) m.persistUserDataImmediate(email);
+    });
+  }
 }
 
 export function getCareerMap(): CareerMapData {

@@ -32,22 +32,40 @@ export function useGradeLevel() {
 
 function GradeLevelModal({
   open,
+  dismissible,
   onSelect,
+  onDismiss,
 }: {
   open: boolean;
+  dismissible?: boolean;
   onSelect: (id: GradeLevelId) => void;
+  onDismiss?: () => void;
 }) {
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm dark:bg-black/70" />
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm dark:bg-black/70"
+        onClick={dismissible ? onDismiss : undefined}
+        aria-hidden
+      />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="grade-level-title"
         className="relative w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#0d0e1a]"
       >
+        {dismissible ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="absolute right-4 top-4 rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"
+            aria-label="Đóng"
+          >
+            ✕
+          </button>
+        ) : null}
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 dark:bg-cyan-400/15">
             <GraduationCap className="h-6 w-6 text-sky-600 dark:text-cyan-300" />
@@ -102,6 +120,11 @@ export function GradeLevelProvider({ children }: { children: React.ReactNode }) 
   function setGradeLevel(id: GradeLevelId) {
     setGradeLevelState(id);
     localStorage.setItem(GRADE_LEVEL_STORAGE_KEY, id);
+    window.dispatchEvent(new CustomEvent("lexa-grade-updated"));
+    void import("@/lib/user-cloud-sync").then((m) => {
+      const email = m.getLoggedInEmail();
+      if (email) m.persistUserDataImmediate(email);
+    });
     setForceOpen(false);
   }
 
@@ -124,7 +147,9 @@ export function GradeLevelProvider({ children }: { children: React.ReactNode }) 
       {children}
       <GradeLevelModal
         open={showModal || showRequiredModal}
+        dismissible={showModal && Boolean(gradeLevel)}
         onSelect={setGradeLevel}
+        onDismiss={() => setForceOpen(false)}
       />
     </GradeLevelContext.Provider>
   );

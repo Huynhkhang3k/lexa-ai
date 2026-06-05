@@ -8,6 +8,7 @@ import {
   BookOpen,
   ClipboardList,
   Languages,
+  Cloud,
   LogIn,
   LogOut,
   Menu,
@@ -97,10 +98,18 @@ export function Navbar() {
             <ThemeToggle />
             {isAuthed ? (
               <div className="hidden items-center gap-2 sm:flex">
+                <Link
+                  href="/settings/sync"
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 hover:text-sky-700 dark:text-white/65 dark:hover:bg-white/10 dark:hover:text-cyan-300"
+                  title="Đồng bộ dữ liệu"
+                >
+                  <Cloud className="h-3.5 w-3.5" />
+                  Đồng bộ
+                </Link>
                 <button
                   type="button"
                   onClick={openPicker}
-                  className="max-w-[120px] truncate text-xs text-slate-600 hover:text-sky-700 dark:text-white/65 dark:hover:text-cyan-300"
+                  className="max-w-[100px] truncate text-xs text-slate-600 hover:text-sky-700 dark:text-white/65 dark:hover:text-cyan-300"
                   title="Đổi khối lớp"
                 >
                   {session.user.name ?? session.user.email}
