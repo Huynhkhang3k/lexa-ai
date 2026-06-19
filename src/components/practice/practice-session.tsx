@@ -18,8 +18,11 @@ type Props = {
   answer: PracticeAnswer | undefined;
   timeLeftSec: number;
   loadingNext?: boolean;
+  nextError?: string | null;
   onAnswer: (id: string, answer: PracticeAnswer) => void;
   onNext: () => void;
+  onRetryNext?: () => void;
+  onAfterSubmit?: () => void;
   onTimeUp: () => void;
 };
 
@@ -30,8 +33,11 @@ export function PracticeSession({
   answer,
   timeLeftSec,
   loadingNext,
+  nextError,
   onAnswer,
   onNext,
+  onAfterSubmit,
+  onRetryNext,
 }: Props) {
   const [revealed, setRevealed] = React.useState(false);
   const progress = ((currentIndex + (revealed ? 1 : 0)) / totalCount) * 100;
@@ -44,6 +50,7 @@ export function PracticeSession({
   function submitAnswer() {
     if (!hasAnswer(question, answer)) return;
     setRevealed(true);
+    onAfterSubmit?.();
   }
 
   return (
@@ -69,8 +76,13 @@ export function PracticeSession({
         <CardContent className="p-6 sm:p-8">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-800 dark:bg-violet-500/20 dark:text-violet-300">
-              {question.topic}
+              {question.curriculum?.chapter ?? question.topic}
             </span>
+            {question.curriculum?.skill ? (
+              <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800 dark:bg-sky-500/20 dark:text-sky-300">
+                {question.curriculum.topic} · {question.curriculum.skill}
+              </span>
+            ) : null}
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-white/10 dark:text-white/60">
               {question.type.replace(/_/g, " ")}
             </span>
@@ -88,9 +100,25 @@ export function PracticeSession({
             <PracticeAnswerFeedback question={question} correct={!!correct} />
           ) : null}
 
+          {revealed && nextError ? (
+            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+              {nextError}
+              {onRetryNext ? (
+                <button
+                  type="button"
+                  className="ml-2 font-semibold underline"
+                  onClick={onRetryNext}
+                >
+                  Thử lại
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="mt-6 flex justify-end">
             {!revealed ? (
               <Button
+                type="button"
                 size="lg"
                 disabled={!hasAnswer(question, answer)}
                 onClick={submitAnswer}
@@ -98,10 +126,10 @@ export function PracticeSession({
                 Trả lời
               </Button>
             ) : (
-              <Button size="lg" disabled={loadingNext} onClick={onNext}>
+              <Button type="button" size="lg" onClick={onNext}>
                 {loadingNext ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Đang tải…
+                    <Loader2 className="h-4 w-4 animate-spin" /> Đang tải câu tiếp…
                   </>
                 ) : currentIndex + 1 >= totalCount ? (
                   "Xem kết quả"

@@ -218,10 +218,21 @@ export function QuestionRenderer({ question, answer, onChange, disabled, reveale
       ) : null}
 
       {q.type === "true_false" ? (
-        <div className="flex gap-3">
+        <div className="space-y-4">
+          {q.statement ? (
+            <div className="rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3.5 dark:border-white/10 dark:bg-white/[0.04]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-white/50">
+                Mệnh đề
+              </p>
+              <p className="mt-1 text-base font-medium leading-relaxed text-slate-900 dark:text-white">
+                {q.statement}
+              </p>
+            </div>
+          ) : null}
+          <div className="flex gap-3">
           {[
-            { label: "Đúng", value: true, letter: "✓" },
-            { label: "Sai", value: false, letter: "✗" },
+            { label: "Đúng", value: true, letter: optionLetter(0) },
+            { label: "Sai", value: false, letter: optionLetter(1) },
           ].map(({ label, value, letter }) => {
             const picked = answer?.type === "true_false" && answer.value === value;
             const vis: OptionVisual =
@@ -244,6 +255,7 @@ export function QuestionRenderer({ question, answer, onChange, disabled, reveale
               </OptionBtn>
             );
           })}
+          </div>
         </div>
       ) : null}
 
@@ -293,8 +305,10 @@ export function QuestionRenderer({ question, answer, onChange, disabled, reveale
         <MatchQuestion
           left={q.matchLeft}
           right={q.matchRight}
+          correctPairs={q.correctPairs}
           pairs={answer?.type === "match" ? answer.pairs : []}
           disabled={disabled}
+          revealed={revealed}
           onChange={(pairs) => onChange({ type: "match", pairs })}
         />
       ) : null}
@@ -340,14 +354,18 @@ export function QuestionRenderer({ question, answer, onChange, disabled, reveale
 function MatchQuestion({
   left,
   right,
+  correctPairs,
   pairs,
   disabled,
+  revealed,
   onChange,
 }: {
   left: string[];
   right: string[];
+  correctPairs?: [number, number][];
   pairs: [number, number][];
   disabled?: boolean;
+  revealed?: boolean;
   onChange: (pairs: [number, number][]) => void;
 }) {
   const [selectedLeft, setSelectedLeft] = React.useState<number | null>(null);
@@ -356,45 +374,67 @@ function MatchQuestion({
     return pairs.find(([l]) => l === li)?.[1];
   }
 
+  function isCorrectPair(li: number, ri: number) {
+    return correctPairs?.some(([l, r]) => l === li && r === ri) ?? false;
+  }
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
-        {left.map((item, li) => (
-          <button
-            key={item}
-            type="button"
-            disabled={disabled}
-            onClick={() => setSelectedLeft(li)}
-            className={[
-              "w-full rounded-xl border px-3 py-2 text-left text-sm",
-              selectedLeft === li
-                ? "border-sky-400 bg-sky-50"
-                : "border-slate-200 bg-white dark:border-white/10 dark:bg-black/20",
-            ].join(" ")}
-          >
-            {item}
-            {pairForLeft(li) !== undefined ? ` → ${right[pairForLeft(li)!]}` : ""}
-          </button>
-        ))}
+        {left.map((item, li) => {
+          const ri = pairForLeft(li);
+          const correct = revealed && ri !== undefined && isCorrectPair(li, ri);
+          const wrong = revealed && ri !== undefined && !isCorrectPair(li, ri);
+          return (
+            <button
+              key={`${li}-${item}`}
+              type="button"
+              disabled={disabled}
+              onClick={() => setSelectedLeft(li)}
+              className={[
+                "w-full rounded-xl border px-3 py-2 text-left text-sm",
+                correct
+                  ? "border-emerald-400 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10"
+                  : wrong
+                    ? "border-rose-400 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-500/10"
+                    : selectedLeft === li
+                      ? "border-sky-400 bg-sky-50 dark:border-cyan-400/40 dark:bg-cyan-400/10"
+                      : "border-slate-200 bg-white dark:border-white/10 dark:bg-black/20",
+              ].join(" ")}
+            >
+              {item}
+              {ri !== undefined ? ` → ${right[ri]}` : ""}
+            </button>
+          );
+        })}
       </div>
       <div className="space-y-2">
-        {right.map((item, ri) => (
-          <button
-            key={item}
-            type="button"
-            disabled={disabled || selectedLeft === null}
-            onClick={() => {
-              if (selectedLeft === null) return;
-              const next = pairs.filter(([l]) => l !== selectedLeft);
-              next.push([selectedLeft, ri]);
-              onChange(next);
-              setSelectedLeft(null);
-            }}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm dark:border-white/10 dark:bg-black/20"
-          >
-            {item}
-          </button>
-        ))}
+        {right.map((item, ri) => {
+          const isCorrectOption =
+            revealed && correctPairs?.some(([, r]) => r === ri) === true;
+          return (
+            <button
+              key={`${ri}-${item}`}
+              type="button"
+              disabled={disabled || selectedLeft === null}
+              onClick={() => {
+                if (selectedLeft === null) return;
+                const next = pairs.filter(([l]) => l !== selectedLeft);
+                next.push([selectedLeft, ri]);
+                onChange(next);
+                setSelectedLeft(null);
+              }}
+              className={[
+                "w-full rounded-xl border px-3 py-2 text-left text-sm",
+                isCorrectOption
+                  ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-500/5"
+                  : "border-slate-200 bg-white dark:border-white/10 dark:bg-black/20",
+              ].join(" ")}
+            >
+              {item}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

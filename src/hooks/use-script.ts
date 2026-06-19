@@ -17,9 +17,7 @@ export function useScript(src: string | null) {
     el.onload = () => setReady(true);
     el.onerror = () => setReady(false);
     document.head.appendChild(el);
-    return () => {
-      el.remove();
-    };
+    // Giữ script trong DOM để tái sử dụng (GeoGebra, Desmos)
   }, [src]);
 
   return ready;

@@ -10,6 +10,7 @@ import {
 import { countSyncData } from "@/lib/user-sync-meta";
 import type { UserSyncPayload } from "@/lib/user-sync-types";
 import { USER_SYNC_VERSION, emptyUserSyncPayload } from "@/lib/user-sync-types";
+import { findUserByEmail } from "@/lib/user-store";
 
 export const runtime = "nodejs";
 
@@ -19,11 +20,12 @@ function isValidPayload(data: unknown): data is UserSyncPayload {
   return p.version === USER_SYNC_VERSION || p.version === 1;
 }
 
-async function requireUserId() {
+async function requireUserAuth() {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
-  if (!userId) return null;
-  return userId;
+  const email = session?.user?.email;
+  if (!userId || !email) return null;
+  return { userId, email };
 }
 
 function buildMeta(data: UserSyncPayload, device?: string) {
@@ -37,20 +39,31 @@ function buildMeta(data: UserSyncPayload, device?: string) {
 }
 
 export async function GET() {
-  const userId = await requireUserId();
-  if (!userId) {
+  const auth = await requireUserAuth();
+  if (!auth) {
     return NextResponse.json({ error: "Cần đăng nhập để đồng bộ dữ liệu." }, { status: 401 });
   }
+  const { userId, email } = auth;
 
-  const data = (await getUserSyncData(userId)) ?? emptyUserSyncPayload();
+  let data = await getUserSyncData(userId);
+  if (!data) {
+    data = emptyUserSyncPayload();
+    const user = await findUserByEmail(email);
+    if (user?.gradeLevel) {
+      data.gradeLevel = user.gradeLevel;
+      await saveUserSyncData(userId, data);
+    }
+  }
+
   return NextResponse.json({ data, meta: buildMeta(data) });
 }
 
 async function handleSave(req: Request, device?: string) {
-  const userId = await requireUserId();
-  if (!userId) {
+  const auth = await requireUserAuth();
+  if (!auth) {
     return NextResponse.json({ error: "Cần đăng nhập để đồng bộ dữ liệu." }, { status: 401 });
   }
+  const { userId } = auth;
 
   let body: { data?: UserSyncPayload; device?: string };
   try {

@@ -112,6 +112,7 @@ export function bindProfileToUser(email: string | null, displayName?: string) {
 
   if (Object.keys(merged).length > 0) {
     localStorage.setItem(userKey, JSON.stringify(merged));
+    localStorage.removeItem(ANON_KEY);
   }
 
   activeProfileKey = userKey;

@@ -1,53 +1,83 @@
 "use client";
 
 import * as React from "react";
+import katex from "katex";
+import { normalizeMathText } from "@/lib/practice-explanation";
 
-/** Tách giải thích thành các bước dễ đọc */
-function splitExplanation(text: string): string[] {
-  const trimmed = text.trim();
-  if (!trimmed) return [];
+function MathSpan({ tex, display }: { tex: string; display: boolean }) {
+  const ref = React.useRef<HTMLSpanElement>(null);
 
-  const numbered = trimmed.split(/(?=\d+[\.\)]\s)/).map((s) => s.trim()).filter(Boolean);
-  if (numbered.length > 1) return numbered;
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    try {
+      katex.render(tex, el, {
+        throwOnError: false,
+        displayMode: display,
+        strict: "ignore",
+      });
+    } catch {
+      el.textContent = tex;
+    }
+  }, [tex, display]);
 
-  const arrows = trimmed.split(/\s*→\s*/).map((s) => s.trim()).filter(Boolean);
-  if (arrows.length > 1) return arrows;
-
-  const sentences = trimmed
-    .split(/(?<=[.;])\s+(?=[A-ZÀ-Ỹ0-9(])/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 8);
-  if (sentences.length > 1) return sentences;
-
-  return [trimmed];
+  if (display) {
+    return (
+      <div className="my-2 overflow-x-auto rounded-lg bg-slate-50/80 px-2 py-1.5 text-center dark:bg-white/5">
+        <span ref={ref} className="inline-block" />
+      </div>
+    );
+  }
+  return <span ref={ref} className="mx-0.5 inline-block align-middle" />;
 }
 
-function RichSpan({ text }: { text: string }) {
-  const parts = text.split(
-    /(\d+[,\.]?\d*\s*(?:giây|phút|giờ|m|cm|km|°|%)|T[₀0]?\/T|T\s*=\s*[\d.,]+|√[\d.]+|x²|x³|\d+\/\d+)/g,
-  );
+/** Render **bold**, $inline$ / $$block$$ — không tách số trong công thức */
+function MathRichText({ text }: { text: string }) {
+  const regex =
+    /(\*\*.+?\*\*|\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\])/g;
+  const parts = text.split(regex).filter((p) => p.length > 0);
 
   return (
     <>
       {parts.map((part, i) => {
-        const isHighlight =
-          /^(T[₀0]?\/T|T\s*=|√|\d+\/\d+|\d+[.,]?\d*\s*(giây|phút|m|cm|°))/i.test(part) ||
-          part.includes("²") ||
-          part.includes("³");
-        if (isHighlight && part.length > 0) {
+        const bold = part.match(/^\*\*(.+)\*\*$/);
+        if (bold) {
           return (
-            <span
-              key={i}
-              className="rounded bg-sky-100/80 px-1 py-0.5 font-mono text-[0.92em] font-semibold text-sky-900 dark:bg-cyan-400/15 dark:text-cyan-200"
-            >
-              {part}
-            </span>
+            <strong key={i} className="font-semibold text-slate-900 dark:text-white">
+              {bold[1]}
+            </strong>
           );
         }
+
+        const blockMath =
+          part.match(/^\$\$([\s\S]+)\$\$$/) ?? part.match(/^\\\[([\s\S]+)\\\]$/);
+        if (blockMath) {
+          return <MathSpan key={i} tex={blockMath[1]!.trim()} display />;
+        }
+
+        const inlineMath =
+          part.match(/^\$([^$\n]+)\$$/) ?? part.match(/^\\\(([\s\S]+?)\\\)$/);
+        if (inlineMath) {
+          return <MathSpan key={i} tex={inlineMath[1]!.trim()} display={false} />;
+        }
+
         return <React.Fragment key={i}>{part}</React.Fragment>;
       })}
     </>
   );
+}
+
+/** Chỉ tách bước khi có xuống dòng + số thứ tự ở đầu dòng */
+function splitExplanationSteps(text: string): string[] {
+  const t = text.trim();
+  if (!t) return [];
+
+  const byNewline = t.split(/\n(?=\d+\.\s+)/).map((s) => s.trim()).filter(Boolean);
+  if (byNewline.length > 1) {
+    return byNewline.map((s) => s.replace(/^\d+\.\s*/, ""));
+  }
+
+  return [t];
 }
 
 type Props = {
@@ -57,20 +87,22 @@ type Props = {
 };
 
 export function PracticeRichText({ text, variant = "question", asSteps }: Props) {
+  const normalized = normalizeMathText(text);
+
   if (variant === "question") {
     return (
       <p className="text-[15px] leading-[1.75] text-slate-800 dark:text-white/90 sm:text-base">
-        <RichSpan text={text} />
+        <MathRichText text={normalized} />
       </p>
     );
   }
 
-  const steps = asSteps !== false ? splitExplanation(text) : [text];
+  const steps = asSteps !== false ? splitExplanationSteps(normalized) : [normalized];
 
   if (steps.length <= 1) {
     return (
       <p className="text-sm leading-relaxed text-slate-700 dark:text-white/80">
-        <RichSpan text={text} />
+        <MathRichText text={steps[0] ?? normalized} />
       </p>
     );
   }
@@ -83,7 +115,7 @@ export function PracticeRichText({ text, variant = "question", asSteps }: Props)
             {i + 1}
           </span>
           <span className="pt-0.5">
-            <RichSpan text={step.replace(/^\d+[\.\)]\s*/, "")} />
+            <MathRichText text={step} />
           </span>
         </li>
       ))}

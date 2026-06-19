@@ -5,14 +5,19 @@ import {
   practiceDifficultyContext,
   type GradeLevelId,
   isValidGradeLevel,
+  parseGradeNumber,
 } from "@/lib/grade-level";
 import {
   buildSingleQuestionPrompt,
-  getSuggestedTypeForIndex,
+  getGradeNumFromLabel,
   normalizeSingleQuestion,
   type PracticeQuestionRaw,
 } from "@/lib/practice-generate";
-import { PRACTICE_COUNTS } from "@/lib/practice-types";
+import { PRACTICE_COUNTS, type QuestionType } from "@/lib/practice-types";
+import {
+  pickCurriculumSlot,
+  type SessionHistory,
+} from "@/lib/practice-session-planner";
 import { toUserFacingError } from "@/lib/user-errors";
 
 export const runtime = "nodejs";
@@ -27,6 +32,10 @@ type Body = {
   sessionId?: string;
   questionIndex?: number;
   previousTopics?: string[];
+  previousSkills?: string[];
+  previousTypes?: string[];
+  previousChapters?: string[];
+  previousCategories?: string[];
 };
 
 type SinglePayload = {
@@ -45,53 +54,88 @@ const JSON_OPTS = {
   },
 };
 
+function buildHistory(body: Body): SessionHistory {
+  return {
+    topics: Array.isArray(body.previousTopics)
+      ? body.previousTopics.filter((t) => typeof t === "string")
+      : [],
+    skills: Array.isArray(body.previousSkills)
+      ? body.previousSkills.filter((t) => typeof t === "string")
+      : [],
+    questionTypes: Array.isArray(body.previousTypes)
+      ? (body.previousTypes.filter((t) => typeof t === "string") as QuestionType[])
+      : [],
+    chapters: Array.isArray(body.previousChapters)
+      ? body.previousChapters.filter((t) => typeof t === "string")
+      : [],
+    categories: Array.isArray(body.previousCategories)
+      ? (body.previousCategories.filter((c) =>
+          ["theory", "calculation", "geometry", "real_world"].includes(String(c)),
+        ) as SessionHistory["categories"])
+      : [],
+  };
+}
+
 async function generateOneQuestion(
   questionIndex: number,
   totalCount: number,
   selectedGrade: string,
-  effectiveGrade: string,
   subject: string,
   difficulty: string,
   difficultyNote: string,
-  previousTopics: string[],
+  history: SessionHistory,
 ) {
-  const suggestedType = getSuggestedTypeForIndex(questionIndex - 1);
-  const prompt = buildSingleQuestionPrompt(
+  const gradeNum = parseGradeNumber(selectedGrade) ?? getGradeNumFromLabel(selectedGrade);
+  const slot = pickCurriculumSlot(
+    selectedGrade,
+    gradeNum,
     questionIndex,
     totalCount,
-    selectedGrade,
-    effectiveGrade,
-    subject,
-    difficulty,
-    difficultyNote,
-    suggestedType,
-    previousTopics,
+    history,
   );
 
+  let lastReject: string | undefined;
   let lastError: Error | null = null;
 
-  for (let i = 0; i < 2; i++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const prompt = buildSingleQuestionPrompt(
+      questionIndex,
+      totalCount,
+      selectedGrade,
+      subject,
+      difficulty,
+      difficultyNote,
+      slot,
+      lastReject,
+    );
+
     try {
       const raw = await generateText(
-        i === 0 ? prompt : `${prompt}\n\nNhắc lại: chỉ 1 câu trong "question". JSON hợp lệ.`,
+        attempt === 0
+          ? prompt
+          : `${prompt}\n\nSinh lại. JSON hợp lệ. Tuân thủ slot chương trình.`,
         {
           ...JSON_OPTS,
           generationConfig: {
             ...JSON_OPTS.generationConfig,
-            temperature: i === 0 ? 0.55 : 0.3,
+            temperature: attempt === 0 ? 0.55 : 0.35,
           },
         },
       );
       const data = extractJson<SinglePayload>(raw);
-      const normalized = normalizeSingleQuestion(data.question, questionIndex);
+      const normalized = normalizeSingleQuestion(data.question, {
+        slot,
+        questionIndex,
+      });
       if (normalized) return normalized;
-      lastError = new Error("AI trả về câu hỏi không hợp lệ");
+      lastReject = "Câu hỏi không hợp lệ hoặc vượt cấp / sai chương trình";
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
+      lastReject = lastError.message;
     }
   }
 
-  throw lastError ?? new Error("AI không tạo được câu hỏi");
+  throw lastError ?? new Error(lastReject ?? "AI không tạo được câu hỏi");
 }
 
 export async function POST(req: Request) {
@@ -119,19 +163,16 @@ export async function POST(req: Request) {
       body.difficulty,
     );
 
-    const previousTopics = Array.isArray(body.previousTopics)
-      ? body.previousTopics.filter((t) => typeof t === "string").slice(-8)
-      : [];
+    const history = buildHistory(body);
 
     const question = await generateOneQuestion(
       questionIndex,
       totalCount,
       body.grade,
-      effectiveGrade,
       body.subject,
       body.difficulty,
       difficultyNote,
-      previousTopics,
+      history,
     );
 
     const sessionId =
@@ -149,6 +190,7 @@ export async function POST(req: Request) {
         count: totalCount,
         questionIndex,
         timeLimitSec: totalCount === 30 ? 1800 : 1200,
+        curriculum: question.curriculum,
       },
     });
   } catch (e) {

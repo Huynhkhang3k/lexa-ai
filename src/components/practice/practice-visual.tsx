@@ -1,10 +1,8 @@
 "use client";
 
 import type { PracticeQuestion } from "@/lib/practice-types";
-import { needsDesmos, needsGeoGebra, needsSvg } from "@/lib/practice-visual-utils";
-import { DesmosGraph } from "./desmos-graph";
+import { needsGeoGebra } from "@/lib/practice-visual-utils";
 import { GeoGebraFigure } from "./geogebra-figure";
-import { PracticeSvgFigure } from "./practice-svg-figure";
 
 type Props = {
   question: PracticeQuestion;
@@ -13,6 +11,7 @@ type Props = {
   onDragUpdate?: (points: Record<string, [number, number]>) => void;
 };
 
+/** Mọi hình/đồ thị/biểu đồ → GeoGebra (engine duy nhất) */
 export function PracticeVisualPanel({
   question,
   interactive,
@@ -20,48 +19,14 @@ export function PracticeVisualPanel({
   onDragUpdate,
 }: Props) {
   const visual = question.visual;
-  if (!visual) return null;
+  if (!visual || !needsGeoGebra(question)) return null;
 
-  if (needsSvg(question) && visual.kind === "svg") {
-    return (
-      <PracticeSvgFigure
-        visual={visual}
-        prompt={question.prompt}
-        interactive={interactive}
-        onPick={onPick}
-      />
-    );
-  }
-
-  if (needsSvg(question) && visual.kind === "geo") {
-    const svgVisual = {
-      kind: "svg" as const,
-      shape: visual.shape,
-      points: visual.points,
-      radius: visual.radius,
-      showLabels: visual.showLabels,
-      unit: "cm" as const,
-    };
-    return (
-      <PracticeSvgFigure
-        visual={svgVisual}
-        prompt={question.prompt}
-        interactive={interactive}
-        onPick={onPick}
-      />
-    );
-  }
-
-  if (needsDesmos(question) && visual.kind === "graph") {
-    return (
-      <DesmosGraph visual={visual} interactive={interactive} onPick={onPick} />
-    );
-  }
-
-  if (needsGeoGebra(question) && visual.kind === "geo") {
+  if (visual.kind === "geogebra") {
     return (
       <GeoGebraFigure
+        key={question.id}
         visual={visual}
+        questionKey={question.id}
         interactive={interactive}
         onPick={onPick}
         onDragUpdate={onDragUpdate}

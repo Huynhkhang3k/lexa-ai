@@ -1,3 +1,13 @@
+export type QuestionCategory = "theory" | "calculation" | "geometry" | "real_world";
+
+export type QuestionCurriculum = {
+  grade: string;
+  chapter: string;
+  topic: string;
+  skill: string;
+  category: QuestionCategory;
+};
+
 export type QuestionType =
   | "mcq"
   | "multi_select"
@@ -17,74 +27,33 @@ export type GraphVisual = {
   bounds?: { left: number; right: number; bottom: number; top: number };
 };
 
-export type GeoShape =
-  | "triangle"
-  | "right_triangle"
-  | "isosceles"
-  | "equilateral"
-  | "rectangle"
-  | "square"
-  | "trapezoid"
-  | "parallelogram"
-  | "circle";
+export type GeoGebraView = {
+  xmin: number;
+  xmax: number;
+  ymin: number;
+  ymax: number;
+};
 
-export type GeoVisual = {
-  kind: "geo";
-  shape: GeoShape;
-  points: Record<string, [number, number]>;
-  radius?: number;
-  showLabels?: boolean;
+/** Hình học — AI chỉ trả lệnh GeoGebra, frontend evalCommand */
+export type GeoGebraVisual = {
+  kind: "geogebra";
+  initCommands: string[];
+  labels?: string[];
+  view?: GeoGebraView;
   draggable?: string[];
 };
 
-export type SvgEdge = {
-  from: string;
-  to: string;
-  length: number;
-  unit?: string;
-};
-
-export type SvgAngle = {
-  vertex: string;
-  arm1: string;
-  arm2: string;
-  degrees: number;
-  rightAngle?: boolean;
-};
-
-/** Hình tĩnh — dữ liệu từ AI, frontend vẽ SVG theo tỉ lệ thật */
-export type SvgVisual = {
-  kind: "svg";
-  shape: GeoShape;
-  /** Cạnh có độ dài — ví dụ AB=8, BC=5 */
-  edges?: SvgEdge[];
-  sides?: Record<string, number>;
-  vertices?: string[];
-  points?: Record<string, [number, number]>;
-  radius?: number;
-  diameter?: number;
-  unit?: string;
-  showLabels?: boolean;
-  rightAngleAt?: string;
-  angles?: SvgAngle[];
-  /** Điểm phụ: H trên BC (ratio 0–1) hoặc D đối xứng A qua H */
-  auxPoints?: Record<
-    string,
-    | { on: [string, string]; ratio: number }
-    | { mirror: { of: string; through: string } }
-  >;
-  /** Đoạn nét đứt: đường cao, đối xứng… */
-  constructionLines?: { from: string; to: string; dashed?: boolean }[];
-};
-
-export type PracticeVisual = GraphVisual | GeoVisual | SvgVisual;
+export type PracticeVisual = GeoGebraVisual;
 
 export type PracticeQuestion = {
   id: string;
   type: QuestionType;
   topic: string;
   prompt: string;
+  /** Mệnh đề rõ ràng cho true_false */
+  statement?: string;
   explanation: string;
+  curriculum?: QuestionCurriculum;
   visual?: PracticeVisual;
   options?: string[];
   correctIndex?: number;
@@ -128,9 +97,23 @@ export type PracticeSessionMeta = {
 };
 
 export type PracticeSessionResult = {
+  /** Tổng số câu của đề (20/30) */
+  totalQuestions: number;
+  correctAnswers: number;
+  /** Chỉ câu đã trả lời nhưng sai */
+  wrongAnswers: number;
+  unansweredQuestions: number;
+  answeredQuestions: number;
+  /** Không đạt = total - correct (sai + chưa làm) */
+  notCorrect: number;
+  /** Phần trăm: (correct / total) × 100 */
+  finalScore: number;
+  /** @deprecated alias */
   correct: number;
   wrong: number;
   total: number;
+  answered: number;
+  unanswered: number;
   accuracy: number;
   scorePercent: number;
   durationMs: number;

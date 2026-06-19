@@ -147,6 +147,7 @@ export function bindActivityToUser(email: string | null) {
   const merged = mergeActivity(existing, anon);
   if (merged.used.length || Object.keys(merged.snapshots).length) {
     localStorage.setItem(userKey, JSON.stringify(merged));
+    localStorage.removeItem(STORAGE_KEY);
   }
   activeActivityKey = userKey;
   window.dispatchEvent(new CustomEvent("lexa-activity-updated"));

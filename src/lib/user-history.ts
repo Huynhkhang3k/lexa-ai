@@ -40,6 +40,12 @@ export type PracticeRecord = {
   subject: string;
   difficulty: string;
   count?: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  wrongAnswers: number;
+  unansweredQuestions: number;
+  finalScore: number;
+  /** @deprecated — giữ tương thích */
   correct: number;
   total: number;
   wrong?: number;
@@ -166,6 +172,7 @@ export function bindHistoryToUser(email: string | null) {
     merged.practiceHistory.length
   ) {
     writeRaw(userKey, merged);
+    localStorage.removeItem(HISTORY_KEY);
   }
 
   activeHistoryKey = userKey;

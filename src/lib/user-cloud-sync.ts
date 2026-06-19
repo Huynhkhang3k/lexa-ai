@@ -120,7 +120,8 @@ export async function pullCloudSync(email: string): Promise<boolean> {
         Boolean(remote.profile.testCompletedAt) ||
         Boolean(remote.profile.hollandResult) ||
         Boolean(remote.profile.targetCareer) ||
-        remote.activity.used.length > 0),
+        remote.activity.used.length > 0 ||
+        Boolean(remote.gradeLevel)),
   );
 
   const hasLocal =
@@ -131,7 +132,8 @@ export async function pullCloudSync(email: string): Promise<boolean> {
     Boolean(local.profile.testCompletedAt) ||
     Boolean(local.profile.hollandResult) ||
     Boolean(local.profile.targetCareer) ||
-    local.activity.used.length > 0;
+    local.activity.used.length > 0 ||
+    Boolean(local.gradeLevel);
 
   if (hasRemote && hasLocal) {
     const merged = mergePayloads(remote!, local);

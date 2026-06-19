@@ -127,7 +127,7 @@ export function PracticeSetup({
           </Button>
 
           <p className="text-center text-xs text-slate-500">
-            Chỉ sinh Câu 1 trước — các câu sau preload ngầm khi bạn đang làm bài.
+            Chương trình: 35% lý thuyết · 35% tính toán · 20% hình học · 10% thực tế
           </p>
         </CardContent>
       </Card>

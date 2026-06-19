@@ -6,6 +6,8 @@ import type {
   PracticeCount,
   PracticeQuestion,
   PracticeSessionMeta,
+  QuestionCategory,
+  QuestionType,
 } from "@/lib/practice-types";
 import { timeLimitForCount } from "@/lib/practice-types";
 
@@ -18,6 +20,10 @@ type FetchParams = {
   sessionId: string;
   questionIndex: number;
   previousTopics: string[];
+  previousSkills: string[];
+  previousTypes: QuestionType[];
+  previousChapters: string[];
+  previousCategories: QuestionCategory[];
 };
 
 async function fetchQuestion(params: FetchParams): Promise<PracticeQuestion> {
@@ -31,6 +37,22 @@ async function fetchQuestion(params: FetchParams): Promise<PracticeQuestion> {
   return data.question as PracticeQuestion;
 }
 
+function historyFromQuestions(questions: PracticeQuestion[]) {
+  return {
+    previousTopics: questions.map((q) => q.curriculum?.topic ?? q.topic),
+    previousSkills: questions.map((q) => q.curriculum?.skill ?? "").filter(Boolean),
+    previousTypes: questions.map((q) => q.type),
+    previousChapters: questions.map((q) => q.curriculum?.chapter ?? "").filter(Boolean),
+    previousCategories: questions
+      .map((q) => q.curriculum?.category)
+      .filter(Boolean) as QuestionCategory[],
+  };
+}
+
+function expectedId(index: number) {
+  return `q${index + 1}`;
+}
+
 export function usePracticeStream() {
   const [sessionId, setSessionId] = React.useState("");
   const [questions, setQuestions] = React.useState<PracticeQuestion[]>([]);
@@ -38,6 +60,9 @@ export function usePracticeStream() {
   const [loadingStart, setLoadingStart] = React.useState(false);
   const [loadingNext, setLoadingNext] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const questionsRef = React.useRef<PracticeQuestion[]>([]);
+  questionsRef.current = questions;
 
   const preloadedRef = React.useRef<PracticeQuestion | null>(null);
   const preloadingRef = React.useRef(false);
@@ -49,26 +74,33 @@ export function usePracticeStream() {
     gradeLevel: GradeLevelId;
   } | null>(null);
 
-  const preload = React.useCallback(async (index: number, sid: string, topics: string[]) => {
-    const p = paramsRef.current;
-    if (!p || preloadingRef.current || index >= p.count) return;
-    if (preloadedRef.current?.id === `q${index + 1}`) return;
+  const preload = React.useCallback(
+    async (index: number, sid: string, prevQuestions: PracticeQuestion[]) => {
+      const p = paramsRef.current;
+      if (!p || preloadingRef.current || index >= p.count) return;
+      if (prevQuestions[index]) return;
+      if (preloadedRef.current?.id === expectedId(index)) return;
 
-    preloadingRef.current = true;
-    try {
-      const q = await fetchQuestion({
-        ...p,
-        sessionId: sid,
-        questionIndex: index + 1,
-        previousTopics: topics,
-      });
-      preloadedRef.current = q;
-    } catch {
-      /* preload thất bại — sẽ fetch khi cần */
-    } finally {
-      preloadingRef.current = false;
-    }
-  }, []);
+      preloadingRef.current = true;
+      try {
+        const hist = historyFromQuestions(prevQuestions);
+        const q = await fetchQuestion({
+          ...p,
+          sessionId: sid,
+          questionIndex: index + 1,
+          ...hist,
+        });
+        if (q.id === expectedId(index)) {
+          preloadedRef.current = q;
+        }
+      } catch {
+        /* preload thất bại — fetch khi bấm Tiếp theo */
+      } finally {
+        preloadingRef.current = false;
+      }
+    },
+    [],
+  );
 
   async function start(params: {
     grade: string;
@@ -92,6 +124,10 @@ export function usePracticeStream() {
         sessionId: sid,
         questionIndex: 1,
         previousTopics: [],
+        previousSkills: [],
+        previousTypes: [],
+        previousChapters: [],
+        previousCategories: [],
       });
 
       const sessionMeta: PracticeSessionMeta = {
@@ -105,7 +141,7 @@ export function usePracticeStream() {
 
       setMeta(sessionMeta);
       setQuestions([q1]);
-      void preload(1, sid, [q1.topic]);
+      void preload(1, sid, [q1]);
       return q1;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi mạng");
@@ -121,29 +157,38 @@ export function usePracticeStream() {
     const nextIdx = currentIndex + 1;
     if (nextIdx >= p.count) return null;
 
-    if (preloadedRef.current) {
-      const q = preloadedRef.current;
+    const existing = questionsRef.current[nextIdx];
+    if (existing) return existing;
+
+    const cached = preloadedRef.current;
+    if (cached?.id === expectedId(nextIdx)) {
       preloadedRef.current = null;
-      let topics: string[] = [];
       setQuestions((prev) => {
-        topics = [...prev, q].map((x) => x.topic);
-        return [...prev, q];
+        const next = [...prev, cached];
+        void preload(nextIdx + 1, sessionId, next);
+        return next;
       });
-      void preload(nextIdx + 1, sessionId, topics);
-      return q;
+      return cached;
     }
+    preloadedRef.current = null;
 
     setLoadingNext(true);
+    setError(null);
     try {
-      const topics = questions.map((x) => x.topic);
+      const prev = questionsRef.current;
+      const hist = historyFromQuestions(prev);
       const q = await fetchQuestion({
         ...p,
         sessionId,
         questionIndex: nextIdx + 1,
-        previousTopics: topics,
+        ...hist,
       });
-      setQuestions((prev) => [...prev, q]);
-      void preload(nextIdx + 1, sessionId, [...topics, q.topic]);
+      setQuestions((prevQs) => {
+        if (prevQs[nextIdx]) return prevQs;
+        const next = [...prevQs, q];
+        void preload(nextIdx + 1, sessionId, next);
+        return next;
+      });
       return q;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi tải câu tiếp theo");
@@ -153,13 +198,24 @@ export function usePracticeStream() {
     }
   }
 
+  const kickPreload = React.useCallback(
+    (currentIndex: number, prevQuestions: PracticeQuestion[]) => {
+      const p = paramsRef.current;
+      if (!p || !sessionId) return;
+      const nextIdx = currentIndex + 1;
+      if (nextIdx >= p.count) return;
+      if (prevQuestions[nextIdx]) return;
+      void preload(nextIdx, sessionId, prevQuestions);
+    },
+    [sessionId, preload],
+  );
+
   React.useEffect(() => {
     if (questions.length === 0 || !sessionId) return;
-    const last = questions[questions.length - 1]!;
     const idx = questions.length;
     const p = paramsRef.current;
     if (p && idx < p.count && !preloadedRef.current && !preloadingRef.current) {
-      void preload(idx, sessionId, questions.map((q) => q.topic));
+      void preload(idx, sessionId, questions);
     }
   }, [questions, sessionId, preload]);
 
@@ -181,6 +237,7 @@ export function usePracticeStream() {
     error,
     start,
     ensureNextQuestion,
+    kickPreload,
     reset,
     setError,
   };

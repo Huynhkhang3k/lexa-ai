@@ -123,12 +123,16 @@ async function loadFromBlob(userId: string): Promise<UserSyncPayload | null> {
 }
 
 async function saveToBlob(userId: string, payload: UserSyncPayload) {
-  await put(blobPath(userId), JSON.stringify(payload), {
-    access: "private",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-  });
+  try {
+    await put(blobPath(userId), JSON.stringify(payload), {
+      access: "private",
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: "application/json",
+    });
+  } catch (error) {
+    console.error("Lỗi khi lưu đồng bộ lên Vercel Blob:", error);
+  }
 }
 
 export async function getUserSyncData(userId: string): Promise<UserSyncPayload | null> {

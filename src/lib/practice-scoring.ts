@@ -1,4 +1,5 @@
 import type { PracticeAnswer, PracticeQuestion } from "./practice-types";
+import { extractPointsFromCommands } from "./practice-geogebra";
 
 function sameSet(a: number[], b: number[]): boolean {
   if (a.length !== b.length) return false;
@@ -69,7 +70,7 @@ export function isAnswerCorrect(q: PracticeQuestion, answer: PracticeAnswer | un
       return near(answer.x, t.x, tol) && near(answer.y, t.y, tol);
     }
     case "geo_drag": {
-      if (answer.type !== "geo_drag" || !q.geoDragTarget || q.visual?.kind !== "geo") {
+      if (answer.type !== "geo_drag" || !q.geoDragTarget || q.visual?.kind !== "geogebra") {
         return false;
       }
       const pts = answer.points;
@@ -78,7 +79,8 @@ export function isAnswerCorrect(q: PracticeQuestion, answer: PracticeAnswer | un
       if (!moved) return false;
       const cond = q.geoDragTarget.condition.toLowerCase();
       if (cond.includes("vuông") || cond.includes("90")) {
-        const all = { ...q.visual.points, ...pts };
+        const base = extractPointsFromCommands(q.visual.initCommands);
+        const all = { ...base, ...pts };
         const keys = Object.keys(all);
         if (keys.length < 3) return false;
         const [a, b, c] = keys.slice(0, 3).map((k) => all[k]!);

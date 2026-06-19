@@ -70,23 +70,29 @@ export default function PracticePage() {
     if (timerRef.current) clearInterval(timerRef.current);
 
     const durationMs = Date.now() - startMs;
-    const analysis = analyzePracticeSession(qs, ans, durationMs);
+    const expectedTotal = stream.meta?.count ?? count;
+    const analysis = analyzePracticeSession(qs, ans, durationMs, expectedTotal);
     setResult(analysis);
     setPhase("results");
 
-    const scoreStr = `${analysis.correct}/${analysis.total}`;
+    const scoreStr = `${analysis.correctAnswers}/${analysis.totalQuestions}`;
     recordActivity("practice", { grade, subject, difficulty, score: scoreStr });
     const record = {
       sessionId: stream.sessionId || `ps-${Date.now()}`,
       grade,
       subject,
       difficulty,
-      count: stream.meta?.count ?? qs.length,
-      correct: analysis.correct,
-      total: analysis.total,
-      wrong: analysis.wrong,
+      count: stream.meta?.count ?? expectedTotal,
+      totalQuestions: analysis.totalQuestions,
+      correctAnswers: analysis.correctAnswers,
+      wrongAnswers: analysis.wrongAnswers,
+      unansweredQuestions: analysis.unansweredQuestions,
+      finalScore: analysis.finalScore,
+      correct: analysis.correctAnswers,
+      total: analysis.totalQuestions,
+      wrong: analysis.wrongAnswers,
       score: scoreStr,
-      accuracy: analysis.accuracy,
+      accuracy: analysis.finalScore,
       durationMs: analysis.durationMs,
       topicsStrong: analysis.strengths,
       topicsWeak: analysis.weaknesses,
@@ -145,12 +151,20 @@ export default function PracticePage() {
     }
 
     if (stream.questions[currentIndex + 1]) {
+      stream.setError(null);
       setCurrentIndex((i) => i + 1);
       return;
     }
 
-    const ok = await stream.ensureNextQuestion(currentIndex);
-    if (ok) setCurrentIndex((i) => i + 1);
+    const q = await stream.ensureNextQuestion(currentIndex);
+    if (q) {
+      setCurrentIndex((i) => i + 1);
+    }
+  }
+
+  async function retryNext() {
+    stream.setError(null);
+    await handleNext();
   }
 
   function resetAll() {
@@ -176,7 +190,7 @@ export default function PracticePage() {
           Luyện tập theo lớp & môn học
         </h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-          Bắt đầu trong vài giây · AI sinh từng câu · preload thông minh · hình SVG tức thì.
+          Bắt đầu trong vài giây · Đúng chương trình từng lớp · GeoGebra · preload thông minh.
         </p>
 
         <div className="mt-8">
@@ -211,10 +225,25 @@ export default function PracticePage() {
               answer={answers[currentQuestion.id]}
               timeLeftSec={timeLeftSec}
               loadingNext={stream.loadingNext}
+              nextError={stream.error}
               onAnswer={(id, a) => setAnswers((prev) => ({ ...prev, [id]: a }))}
+              onAfterSubmit={() =>
+                stream.kickPreload(currentIndex, stream.questions)
+              }
               onNext={() => void handleNext()}
+              onRetryNext={() => void retryNext()}
               onTimeUp={handleTimeUp}
             />
+          ) : null}
+
+          {phase === "session" && !currentQuestion ? (
+            <div className="mt-6 flex flex-col items-center gap-3 text-sm text-slate-500">
+              <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
+              Đang tải câu hỏi…
+              {stream.error ? (
+                <p className="text-rose-600">{stream.error}</p>
+              ) : null}
+            </div>
           ) : null}
 
           {phase === "results" && result ? (

@@ -115,6 +115,15 @@ export function GradeLevelProvider({ children }: { children: React.ReactNode }) 
       setGradeLevelState(stored);
     }
     setReady(true);
+
+    const handleGradeUpdated = () => {
+      const updated = localStorage.getItem(GRADE_LEVEL_STORAGE_KEY);
+      if (isValidGradeLevel(updated)) {
+        setGradeLevelState(updated);
+      }
+    };
+    window.addEventListener("lexa-grade-updated", handleGradeUpdated);
+    return () => window.removeEventListener("lexa-grade-updated", handleGradeUpdated);
   }, []);
 
   function setGradeLevel(id: GradeLevelId) {

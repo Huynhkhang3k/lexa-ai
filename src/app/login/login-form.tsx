@@ -68,10 +68,11 @@ export default function LoginForm() {
     }
   }, []);
 
-  function ensureGrade(): GradeLevelId | null {
-    if (gradeLevel) return gradeLevel;
-    setGradeError("Vui lòng chọn khối lớp trước khi tiếp tục.");
-    return null;
+  function ensureGrade(): boolean {
+    if (mode === "login") return true;
+    if (gradeLevel) return true;
+    setGradeError("Vui lòng chọn khối lớp trước khi đăng ký.");
+    return false;
   }
 
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -124,7 +125,7 @@ export default function LoginForm() {
     const providers = await getProviders();
     if (!providers?.google) {
       setError(
-        "Google chưa bật — mở Google Cloud → Credentials → LEXA2 → copy Client secret, dán vào .env.local dòng GOOGLE_CLIENT_SECRET=..., rồi chạy npm run dev:fresh.",
+        "Đăng nhập bằng Google chưa được cấu hình đầy đủ. Hãy đảm bảo bạn đã khai báo cả GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET trong file .env.local, sau đó khởi động lại server bằng lệnh 'npm run dev:fresh'.",
       );
       return;
     }
@@ -170,16 +171,18 @@ export default function LoginForm() {
           </CardHeader>
 
           <CardContent className="space-y-5 pt-4">
-            <GradeLevelPicker
-              value={gradeLevel}
-              onChange={(id) => {
-                setGradeLevel(id);
-                setGradeError(null);
-              }}
-              compact
-              required
-              error={gradeError}
-            />
+            {mode === "register" ? (
+              <GradeLevelPicker
+                value={gradeLevel}
+                onChange={(id) => {
+                  setGradeLevel(id);
+                  setGradeError(null);
+                }}
+                compact
+                required
+                error={gradeError}
+              />
+            ) : null}
 
             <Button
               type="button"

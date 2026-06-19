@@ -91,36 +91,21 @@ export function chatAssistantContext(id: GradeLevelId): string {
 }
 
 export function practiceDifficultyContext(
-  userLevel: GradeLevelId,
+  _userLevel: GradeLevelId,
   selectedGrade: string,
   selectedDifficulty: string,
 ): { effectiveGrade: string; difficultyNote: string } {
   const selected = parseGradeNumber(selectedGrade) ?? 10;
-  const profile = GRADE_LEVELS.find((g) => g.id === userLevel)!;
-  let target = selected;
-
-  if (profile.maxGrade > selected) {
-    const gap = profile.maxGrade - selected;
-    target = Math.min(12, selected + Math.max(2, Math.ceil(gap * 0.6)));
-  }
-
-  if (selectedDifficulty === "Dễ") {
-    target = Math.max(target, selected + 1);
-  } else if (selectedDifficulty === "Trung bình") {
-    target = Math.max(target, selected + 2);
-  } else {
-    target = Math.max(target, selected + 3);
-  }
-
-  target = Math.min(12, target);
 
   const difficultyNote =
-    profile.maxGrade > selected
-      ? `Học sinh khối ${profile.label} chọn luyện ${selectedGrade} — đề phải KHÓ HƠN mức lớp ${selectedGrade}, tương đương nội dung lớp ${target} trở lên. Câu hỏi mang tính thử thách, không quá dễ.`
-      : `Đề luyện tập lớp ${selectedGrade}, độ khó "${selectedDifficulty}" — câu hỏi phải thực sự thử thách, tránh câu quá cơ bản. Mức độ tương đương lớp ${target}.`;
+    selectedDifficulty === "Dễ"
+      ? `Độ khó DỄ — chỉ dùng kiến thức trong chương trình lớp ${selected}. KHÔNG sinh bài lớp khác hoặc vượt cấp.`
+      : selectedDifficulty === "Trung bình"
+        ? `Độ khó TRUNG BÌNH — câu 2–3 bước, đúng chương trình lớp ${selected}. KHÔNG vượt cấp lớp ${selected}.`
+        : `Độ khó KHÓ — thử thách trong phạm vi lớp ${selected}. KHÔNG dùng kiến thức lớp ${selected + 1} trở lên.`;
 
   return {
-    effectiveGrade: `Lớp ${target}`,
+    effectiveGrade: `Lớp ${selected}`,
     difficultyNote,
   };
 }
