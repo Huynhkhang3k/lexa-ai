@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Khám phá 5 ngành nghề · Video tương tác · LEXA AI</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a href="/library" class="back-link" target="_top">← Thư viện nghề</a>
+      <div class="header-text">
+        <p class="eyebrow">LEXA AI · Thư viện nghề</p>
+        <h1>Khám phá 5 ngành nghề nổi bật</h1>
+        <p class="subtitle">Xem video và trả lời câu hỏi khi video tạm dừng — hệ thống tự động tiếp tục.</p>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="video-shell">
+        <div class="video-frame" id="videoFrame">
+          <video
+            id="careerVideo"
+            class="career-video"
+            playsinline
+            preload="auto"
+            src="https://files.catbox.moe/jzzizl.mp4"
+          >
+            Trình duyệt không hỗ trợ video HTML5.
+          </video>
+
+          <!-- Màn hình bắt đầu -->
+          <button type="button" class="start-screen" id="startScreen">
+            <span class="start-icon">▶</span>
+            <span class="start-label">Bắt đầu xem video</span>
+          </button>
+
+          <!-- Overlay trắng — cùng kích thước video -->
+          <div class="quiz-overlay" id="quizOverlay" aria-hidden="true"></div>
+
+          <!-- Card câu hỏi -->
+          <div class="quiz-card-wrap" id="quizCardWrap" aria-hidden="true">
+            <div class="quiz-card" id="quizCard" role="dialog" aria-modal="true">
+              <div class="quiz-badge" id="quizCareer">Ngành nghề</div>
+              <h2 class="quiz-question" id="quizQuestion">Câu hỏi</h2>
+              <div class="options" id="quizOptions"></div>
+              <div class="feedback" id="quizFeedback" hidden></div>
+              <button type="button" class="btn-submit" id="btnSubmit">Nộp bài</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-bar">
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="timeCurrent">0:00</span>
+            <span id="quizCounter">0/5 câu đã hoàn thành</span>
+            <span id="timeDuration">0:00</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

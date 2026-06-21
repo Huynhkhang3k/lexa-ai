@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import Image from "next/image";
-import { ChevronDown, Filter, Search, Sparkles, X } from "lucide-react";
+import { ChevronDown, Filter, PlayCircle, Search, Sparkles, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Container } from "@/components/ui/container";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -300,6 +301,34 @@ export default function CareerLibraryPage() {
           </div>
         </div>
       </div>
+
+      <Link
+        href="/interactive-career-video"
+        className="mt-6 block overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-violet-50 shadow-sm transition hover:shadow-md dark:border-cyan-500/25 dark:from-cyan-500/10 dark:via-black/20 dark:to-violet-500/10"
+      >
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-violet-500 text-white shadow-lg shadow-sky-500/25">
+              <PlayCircle className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-cyan-300">
+                Video tương tác · Mới
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+                Khám phá 5 ngành nghề nổi bật
+              </h2>
+              <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600 dark:text-white/65">
+                Tiếp viên hàng không · Kỹ sư phần mềm · UI Designer · Pháp lý · Giáo viên.
+                Video tự dừng để bạn trả lời câu hỏi, sau đó tự chạy tiếp.
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex shrink-0 items-center justify-center rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white dark:bg-cyan-500">
+            Xem ngay →
+          </span>
+        </div>
+      </Link>
 
       <div className="mt-6 rounded-2xl border border-violet-200/60 bg-gradient-to-br from-violet-50/80 to-fuchsia-50/50 p-4 backdrop-blur-sm dark:border-violet-500/20 dark:from-violet-500/10 dark:to-fuchsia-500/5">
         <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:text-fuchsia-300">

@@ -97,6 +97,14 @@ const nextConfig = {
     }
     return config;
   },
+  async rewrites() {
+    return [
+      {
+        source: "/interactive-career-video/",
+        destination: "/interactive-career-video/index.html",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
