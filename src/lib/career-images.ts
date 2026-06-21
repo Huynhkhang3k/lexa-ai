@@ -5,8 +5,7 @@ export const CAREER_IMAGE_URLS: Record<string, string> = {
   se: "https://images.pexels.com/photos/16129703/pexels-photo-16129703.jpeg?auto=compress&cs=tinysrgb&w=1200",
   ux: "https://images.pexels.com/photos/11813187/pexels-photo-11813187.jpeg?auto=compress&cs=tinysrgb&w=1200",
   da: "https://cdn2.fptshop.com.vn/unsafe/800x0/nganh_phan_tich_du_lieu_la_gi_5_26987d0e33.jpg",
-  cybersec:
-    "https://media-blog.jobsgo.vn/blog/wp-content/uploads/2021/05/Chuyen-nganh-An-ninh-mang-la-gi.jpg",
+  cybersec: "/careers/cybersec.jpg",
   devops:
     "https://hr1tech.com/htdocs/images/owners/hr1tech/co-hoi-nghe-nghiep-va-tuong-lai-cua-ky-su-dien-toan-dam-may.jpg",
   ba: "https://career.gpo.vn/uploads/images/409061110/images/gpo-business-analyst-ba-3-chuyen-vien-phan-tich-nghiep-vu-huong-nghiep-gpo.jpg",
