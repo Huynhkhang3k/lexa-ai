@@ -1,7 +1,7 @@
 /** Mật mã Holland (RIASEC) — nền tảng hướng nghiệp LEXA AI */
 
 export const HOLLAND_RIASEC_DIAGRAM_URL =
-  "https://huongnghiepaau.edu.vn/wp-content/uploads/2022/02/trac-nghiem-holland-riasec.png";
+  "https://i.postimg.cc/Ssw-Tykkt/Gemini-Generated-Image-c7t1g8c7t1g8c7t1-removebg-preview.png";
 
 export type RiasecCode = "R" | "I" | "A" | "S" | "E" | "C";
 
@@ -25,12 +25,12 @@ export type RiasecType = {
 };
 
 export const RIASEC_GROUP_IMAGES: Record<RiasecCode, string> = {
-  R: "https://huongnghiepaau.edu.vn/wp-content/uploads/2022/07/nhom-ky-thuat-228x250.jpg",
-  I: "https://huongnghiepaau.edu.vn/wp-content/uploads/2022/07/nhom-nghien-cuu-228x250.jpg",
-  A: "https://huongnghiepaau.edu.vn/wp-content/uploads/2022/07/nhom-nghe-thuat-228x250.jpg",
-  S: "https://huongnghiepaau.edu.vn/wp-content/uploads/2022/07/nhom-xa-hoi-228x250.jpg",
-  E: "https://huongnghiepaau.edu.vn/wp-content/uploads/2022/07/nhom-quan-ly-228x250.jpg",
-  C: "https://huongnghiepaau.edu.vn/wp-content/uploads/2022/07/nhom-nghiep-vu-228x250.jpg",
+  R: "https://i.postimg.cc/zvcnJBJN/Gemini-Generated-Image-fq078qfq078qfq07-removebg-preview.png",
+  I: "https://i.postimg.cc/xTBKhcxN/Gemini-Generated-Image-kwsslckwsslckwss-removebg-preview.png",
+  A: "https://i.postimg.cc/s247MKVW/Gemini-Generated-Image-hhbsvehhbsvehhbs-removebg-preview.png",
+  S: "https://i.postimg.cc/mrzKRzBx/Gemini-Generated-Image-u92dfju92dfju92d-removebg-preview.png",
+  E: "https://i.postimg.cc/76N9ywCj/Gemini-Generated-Image-k3b909k3b909k3b9-removebg-preview.png",
+  C: "https://i.postimg.cc/xj4pRGmg/d8799b64-7892-4a6f-a66a-9011381ee50f-removebg-preview.png",
 };
 
 export const RIASEC_TYPES: RiasecType[] = [
@@ -104,7 +104,7 @@ export const RIASEC_TYPES: RiasecType[] = [
   },
   {
     code: "E",
-    labelVi: "Quản lý / Kinh doanh",
+    labelVi: "Quản lý",
     labelEn: "Enterprising",
     shortDesc: "Thích lãnh đạo, thuyết phục, kinh doanh và ra quyết định.",
     color: "text-sky-600 dark:text-sky-400",
@@ -121,7 +121,7 @@ export const RIASEC_TYPES: RiasecType[] = [
   },
   {
     code: "C",
-    labelVi: "Nghiệp vụ / Hành chính",
+    labelVi: "Nghiệp vụ",
     labelEn: "Conventional",
     shortDesc: "Thích quy trình rõ, số liệu chính xác và công việc có tổ chức.",
     color: "text-violet-600 dark:text-violet-400",

@@ -136,8 +136,13 @@ export function HollandRiasecSection({ variant = "home", className, onStartTest 
         <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200/80 bg-white/90 p-5 text-sm leading-7 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 sm:p-6">
           <p>
             <strong className="text-slate-900 dark:text-white">RIASEC</strong> gồm sáu chữ cái:{" "}
-            <strong>R</strong> (Kỹ thuật), <strong>I</strong> (Nghiên cứu), <strong>A</strong> (Nghệ thuật),{" "}
-            <strong>S</strong> (Xã hội), <strong>E</strong> (Quản lý / Kinh doanh), <strong>C</strong> (Nghiệp vụ / Hành chính).
+            {RIASEC_TYPES.map((t, i) => (
+              <span key={t.code}>
+                {i > 0 ? ", " : null}
+                <strong>{t.code}</strong> ({t.labelVi})
+              </span>
+            ))}
+            .
             Sau bài test, LEXA xác định <strong className="text-slate-900 dark:text-white">mã Holland</strong> từ ba nhóm điểm cao nhất của bạn (ví dụ: ISA, SEC…).
           </p>
         </div>
@@ -148,7 +153,7 @@ export function HollandRiasecSection({ variant = "home", className, onStartTest 
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-b from-slate-900 to-slate-950 p-6 dark:border-white/10 sm:p-8">
+        <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-6 dark:border-white/10 dark:bg-white sm:p-8">
           <div className="mx-auto max-w-lg">
             <Image
               src={HOLLAND_RIASEC_DIAGRAM_URL}
@@ -159,7 +164,7 @@ export function HollandRiasecSection({ variant = "home", className, onStartTest 
               className="mx-auto w-full object-contain"
             />
           </div>
-          <p className="mt-4 text-center text-xs text-white/50">
+          <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-600">
             Sơ đồ 6 nhóm tính cách nghề nghiệp Holland
           </p>
         </div>
