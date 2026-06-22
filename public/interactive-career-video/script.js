@@ -78,6 +78,8 @@
   const LETTERS = ["A", "B", "C", "D"];
   const FEEDBACK_MS = 900;
   const HIDE_ANIM_MS = 280;
+  const SEEK_STEP = 10;
+  const TRIGGER_EPS = 0.05;
 
   const video = document.getElementById("careerVideo");
   const overlay = document.getElementById("quizOverlay");
@@ -87,6 +89,8 @@
   const optionsEl = document.getElementById("quizOptions");
   const feedbackEl = document.getElementById("quizFeedback");
   const btnSubmit = document.getElementById("btnSubmit");
+  const btnSeekBack = document.getElementById("btnSeekBack");
+  const btnSeekForward = document.getElementById("btnSeekForward");
   const progressFill = document.getElementById("progressFill");
   const timeCurrent = document.getElementById("timeCurrent");
   const timeDuration = document.getElementById("timeDuration");
@@ -101,6 +105,7 @@
     showingFeedback: false,
     dismissing: false,
     endedHandled: false,
+    started: false,
   };
 
   function formatTime(sec) {
@@ -110,6 +115,22 @@
     return m + ":" + String(s).padStart(2, "0");
   }
 
+  function clampTime(time) {
+    const duration = video.duration;
+    const max = Number.isFinite(duration) && duration > 0 ? duration : time;
+    return Math.max(0, Math.min(time, max));
+  }
+
+  function canSeek() {
+    return state.started && !state.quizLock && !state.dismissing && !state.showingFeedback;
+  }
+
+  function updateSeekButtons() {
+    const enabled = canSeek();
+    btnSeekBack.disabled = !enabled;
+    btnSeekForward.disabled = !enabled;
+  }
+
   function updateProgress() {
     const d = video.duration;
     if (Number.isFinite(d) && d > 0) {
@@ -117,6 +138,32 @@
     }
     timeCurrent.textContent = formatTime(video.currentTime);
     quizCounter.textContent = state.answered.size + "/5 câu đã hoàn thành";
+    updateSeekButtons();
+  }
+
+  function findQuestionCrossedOnForwardSeek(fromTime, toTime) {
+    if (toTime <= fromTime + 0.001) return null;
+
+    for (let i = 0; i < QUESTIONS.length; i++) {
+      const q = QUESTIONS[i];
+      if (state.answered.has(q.id)) continue;
+      if (fromTime < q.startAt - TRIGGER_EPS && toTime >= q.startAt - TRIGGER_EPS) {
+        return q;
+      }
+    }
+    return null;
+  }
+
+  function enforceQuizZone() {
+    if (!state.quizLock || !state.active) return;
+
+    if (!video.paused) {
+      video.pause();
+    }
+
+    if (Math.abs(video.currentTime - state.active.startAt) > 0.12) {
+      video.currentTime = state.active.startAt;
+    }
   }
 
   function renderOptions(q) {
@@ -145,14 +192,14 @@
   }
 
   function showQuiz(q) {
+    if (state.answered.has(q.id)) return;
+
     state.active = q;
     state.selected = null;
     state.quizLock = true;
 
     video.pause();
-    if (video.currentTime > q.startAt + 0.05) {
-      video.currentTime = q.startAt;
-    }
+    video.currentTime = q.startAt;
 
     careerEl.textContent = q.career;
     questionEl.textContent = q.question;
@@ -170,6 +217,8 @@
     cardWrap.classList.add("is-visible");
     overlay.setAttribute("aria-hidden", "false");
     cardWrap.setAttribute("aria-hidden", "false");
+
+    updateProgress();
   }
 
   function hideQuizUI(callback) {
@@ -231,17 +280,44 @@
   }
 
   function checkTriggers() {
-    if (state.quizLock || state.dismissing || state.showingFeedback) return;
+    if (state.quizLock || state.dismissing || state.showingFeedback) {
+      enforceQuizZone();
+      return;
+    }
 
     const t = video.currentTime;
+
     for (let i = 0; i < QUESTIONS.length; i++) {
       const q = QUESTIONS[i];
       if (state.answered.has(q.id)) continue;
-      if (t >= q.startAt - 0.05) {
+      if (t >= q.startAt - TRIGGER_EPS) {
         showQuiz(q);
         return;
       }
     }
+  }
+
+  function seekBy(delta) {
+    if (!canSeek()) return;
+
+    const fromTime = video.currentTime;
+    const toTime = clampTime(fromTime + delta);
+
+    if (Math.abs(toTime - fromTime) < 0.01) return;
+
+    video.pause();
+
+    if (delta > 0) {
+      const crossed = findQuestionCrossedOnForwardSeek(fromTime, toTime);
+      if (crossed) {
+        showQuiz(crossed);
+        return;
+      }
+    }
+
+    video.currentTime = toTime;
+    updateProgress();
+    checkTriggers();
   }
 
   function returnToLibrary() {
@@ -275,7 +351,17 @@
   });
 
   video.addEventListener("seeked", function () {
-    if (!state.quizLock) checkTriggers();
+    if (state.quizLock) {
+      enforceQuizZone();
+      return;
+    }
+    checkTriggers();
+  });
+
+  video.addEventListener("play", function () {
+    if (state.quizLock) {
+      video.pause();
+    }
   });
 
   video.addEventListener("ended", function () {
@@ -284,11 +370,35 @@
 
   btnSubmit.addEventListener("click", onSubmit);
 
+  btnSeekBack.addEventListener("click", function () {
+    seekBy(-SEEK_STEP);
+  });
+
+  btnSeekForward.addEventListener("click", function () {
+    seekBy(SEEK_STEP);
+  });
+
   startScreen.addEventListener("click", function () {
     startScreen.classList.add("is-hidden");
+    state.started = true;
     video.play().catch(function () {
       startScreen.classList.remove("is-hidden");
+      state.started = false;
+      updateSeekButtons();
     });
+    updateSeekButtons();
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (!canSeek()) return;
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      seekBy(-SEEK_STEP);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      seekBy(SEEK_STEP);
+    }
   });
 
   updateProgress();

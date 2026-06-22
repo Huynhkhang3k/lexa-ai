@@ -51,8 +51,16 @@
         </div>
 
         <div class="progress-bar">
-          <div class="progress-track">
+          <div class="progress-track" aria-hidden="true">
             <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="seek-controls">
+            <button type="button" class="seek-btn" id="btnSeekBack" aria-label="Tua lùi 10 giây">
+              −10s
+            </button>
+            <button type="button" class="seek-btn" id="btnSeekForward" aria-label="Tua tiến 10 giây">
+              +10s
+            </button>
           </div>
           <div class="progress-meta">
             <span id="timeCurrent">0:00</span>
