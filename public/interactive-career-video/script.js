@@ -80,6 +80,10 @@
   const HIDE_ANIM_MS = 280;
   const SEEK_STEP = 10;
   const TRIGGER_EPS = 0.05;
+  const VIDEO_SOURCES = [
+    "https://files.catbox.moe/jzzizl.mp4",
+    "/interactive-career-video/career-video.mp4",
+  ];
 
   const video = document.getElementById("careerVideo");
   const overlay = document.getElementById("quizOverlay");
@@ -106,6 +110,8 @@
     dismissing: false,
     endedHandled: false,
     started: false,
+    sourceIndex: 0,
+    loadFailed: false,
   };
 
   function formatTime(sec) {
@@ -340,9 +346,53 @@
     }
   }
 
+  function showVideoError(message) {
+    state.loadFailed = true;
+    state.started = false;
+    startScreen.classList.remove("is-hidden");
+    startScreen.querySelector(".start-label").textContent = message;
+    updateSeekButtons();
+  }
+
+  function tryNextVideoSource() {
+    if (state.sourceIndex + 1 >= VIDEO_SOURCES.length) {
+      showVideoError("Không tải được video. Vui lòng thử lại sau.");
+      return;
+    }
+
+    state.sourceIndex += 1;
+    video.src = VIDEO_SOURCES[state.sourceIndex];
+    video.load();
+  }
+
+  function beginPlayback() {
+    if (state.loadFailed) return;
+
+    startScreen.classList.add("is-hidden");
+    state.started = true;
+    video.play().catch(function () {
+      startScreen.classList.remove("is-hidden");
+      state.started = false;
+      startScreen.querySelector(".start-label").textContent =
+        "Không phát được video. Thử lại hoặc kiểm tra kết nối mạng.";
+      updateSeekButtons();
+    });
+    updateSeekButtons();
+  }
+
   video.addEventListener("loadedmetadata", function () {
+    if (!Number.isFinite(video.duration) || video.duration <= 0) {
+      tryNextVideoSource();
+      return;
+    }
+
+    state.loadFailed = false;
     timeDuration.textContent = formatTime(video.duration);
     updateProgress();
+  });
+
+  video.addEventListener("error", function () {
+    tryNextVideoSource();
   });
 
   video.addEventListener("timeupdate", function () {
@@ -379,14 +429,7 @@
   });
 
   startScreen.addEventListener("click", function () {
-    startScreen.classList.add("is-hidden");
-    state.started = true;
-    video.play().catch(function () {
-      startScreen.classList.remove("is-hidden");
-      state.started = false;
-      updateSeekButtons();
-    });
-    updateSeekButtons();
+    beginPlayback();
   });
 
   document.addEventListener("keydown", function (event) {
