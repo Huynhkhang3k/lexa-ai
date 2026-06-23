@@ -147,8 +147,7 @@ export default function Home() {
                     Sẵn sàng bắt đầu?
                   </div>
                   <div className="mt-2 text-xl font-semibold text-slate-900 dark:text-white sm:text-2xl">
-                    Khám phá bản thân → Định hướng nghề → Học tập → Phát triển kỹ năng → Xây
-                    dựng tương lai
+                    Khám phá bản thân → Định hướng nghề nghiệp → Học tập phát triển kỹ năng → Theo dõi tiến bộ → Điều chỉnh mục tiêu
                   </div>
                   <div className="mt-2 max-w-lg text-sm leading-6 text-slate-600 dark:text-white/60">
                     LEXA đồng hành cùng bạn trên toàn bộ hành trình — bắt đầu với bài test miễn

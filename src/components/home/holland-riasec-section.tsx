@@ -81,7 +81,8 @@ export function HollandRiasecSection({ variant = "home", className, onStartTest 
               <strong>18 câu</strong> — 3 câu cho mỗi nhóm R, I, A, S, E, C (nội dung chuẩn Holland, không câu ngẫu
               nhiên).
             </li>
-            <li>Mỗi câu có <strong>6 lựa chọn</strong>; bạn chọn <strong>nhiều đáp án</strong> phù hợp.</li>
+            <li>Mỗi câu có nhiều lựa chọn sở thích; bạn chọn <strong>nhiều đáp án</strong> phù hợp.</li>
+            <li>Hoặc chọn <strong>&quot;chưa xác định&quot;</strong> nếu chưa chắc — không cộng điểm.</li>
             <li>Mỗi lựa chọn = <strong>+1 điểm</strong> cho nhóm tương ứng.</li>
             <li>Kết quả: mã Holland → giải thích nhóm → ngành/lĩnh vực → <strong>nghề gợi ý ở cuối</strong> (không bắt chọn nghề ngay).</li>
           </ul>

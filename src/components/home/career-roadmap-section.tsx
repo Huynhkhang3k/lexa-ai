@@ -57,8 +57,8 @@ export function CareerRoadmapSection() {
           </h3>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600 dark:text-white/60">
             {assessed
-              ? "Bạn đã hoàn thành đánh giá — hãy chọn nghề mục tiêu để LEXA vẽ lộ trình."
-              : "Hoàn thành bài đánh giá, chọn nghề mục tiêu — lộ trình sẽ được tạo dựa trên câu trả lời của bạn."}
+              ? "Bạn đã hoàn thành đánh giá — làm lại bài test để cập nhật lộ trình RIASEC."
+              : "Hoàn thành bài đánh giá Holland — lộ trình sẽ được tạo từ điểm RIASEC thật của bạn."}
           </p>
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             {!assessed ? (
@@ -66,8 +66,8 @@ export function CareerRoadmapSection() {
                 Bắt đầu đánh giá
               </ButtonLink>
             ) : (
-              <ButtonLink href="/test" variant="secondary" size="lg" className="justify-center">
-                Chọn nghề nghiệp mục tiêu
+              <ButtonLink href="/roadmap" variant="secondary" size="lg" className="justify-center">
+                Xem lộ trình đã lưu
               </ButtonLink>
             )}
             <ButtonLink href="/library" variant="secondary" size="lg" className="justify-center">
@@ -77,6 +77,15 @@ export function CareerRoadmapSection() {
         </div>
       ) : (
         <div className="relative mt-8 overflow-hidden rounded-3xl border border-sky-200/70 bg-gradient-to-br from-sky-50/90 via-white to-violet-50/60 p-6 dark:border-cyan-500/25 dark:from-cyan-500/[0.08] dark:via-[#0a0b14] dark:to-fuchsia-500/[0.06] sm:p-10">
+          {profile.hollandResult?.hollandCode ? (
+            <p className="mb-4 text-center text-sm text-slate-600 dark:text-white/65">
+              Mã Holland{" "}
+              <strong className="text-slate-900 dark:text-white">{profile.hollandResult.hollandCode}</strong>
+              {profile.hollandResult.topGroups[0]
+                ? ` · Nhóm nổi bật: ${profile.hollandResult.topGroups[0].labelVi}`
+                : ""}
+            </p>
+          ) : null}
           {profile.targetCareer?.id && hasCareerImage(profile.targetCareer.id) ? (
             <CareerImage
               careerId={profile.targetCareer.id}
@@ -145,6 +154,12 @@ export function CareerRoadmapSection() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="mt-8 text-center">
+            <ButtonLink href="/roadmap" size="lg" className="justify-center">
+              Xem lộ trình chi tiết
+            </ButtonLink>
           </div>
         </div>
       )}

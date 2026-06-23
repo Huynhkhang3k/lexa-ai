@@ -15,6 +15,8 @@ export type RiasecScores = Record<RiasecCode, number>;
 export type HollandAnswer = {
   questionId: string;
   selectedOptionIds: string[];
+  /** Chọn "chưa xác định" — không cộng điểm, không ảnh hưởng tiêu cực. */
+  undetermined?: boolean;
 };
 
 export type ScoredRiasecGroup = {
@@ -84,7 +86,7 @@ export function scoreHollandAnswers(answers: HollandAnswer[]): RiasecScores {
 
   for (const a of answers) {
     const question = questionById.get(a.questionId);
-    if (!question) continue;
+    if (!question || a.undetermined) continue;
     const validIds = new Set(question.options.map((o) => o.id));
     for (const optId of a.selectedOptionIds) {
       if (validIds.has(optId)) scores[question.group] += 1;
@@ -248,7 +250,7 @@ export function buildHollandResult(answers: HollandAnswer[]): HollandResult {
     title: `Mã Holland: ${hollandCode}`,
     summary: `Bạn làm bài test Holland (RIASEC) của LEXA AI với ${totalSelections} lựa chọn. Ba nhóm nổi bật: ${getRiasecType(primary).labelVi}, ${getRiasecType(secondary).labelVi}, ${getRiasecType(tertiary).labelVi} → mã ${hollandCode}.`,
     scoringNote:
-      "Mỗi đáp án bạn chọn được cộng +1 điểm cho nhóm RIASEC của câu đó (R/I/A/S/E/C). Mã Holland = 3 chữ cái của 3 nhóm điểm cao nhất. Gợi ý ngành/nghề so khớp điểm của bạn với nhóm chính/phụ của từng nghề trong thư viện LEXA.",
+      "Mỗi đáp án sở thích bạn chọn được cộng +1 điểm cho nhóm RIASEC của câu đó (R/I/A/S/E/C). Lựa chọn \"chưa xác định\" không cộng điểm. Mã Holland = 3 chữ cái của 3 nhóm điểm cao nhất. Gợi ý ngành/nghề so khớp điểm của bạn với nhóm chính/phụ của từng nghề trong thư viện LEXA.",
     strengths: topGroups.flatMap((g) => getRiasecType(g.code).skills.slice(0, 2)).slice(0, 6),
     areasToImprove: buildAreasToImprove(scores, topGroups),
     learningEnv: topGroups.map((g) => getRiasecType(g.code).learningEnv).join(" "),
@@ -261,7 +263,7 @@ export function buildHollandResult(answers: HollandAnswer[]): HollandResult {
       `Đọc kỹ giải thích 3 nhóm ${hollandCode} và lĩnh vực phù hợp bên trên`,
       `Khám phá thư viện nghề theo nhóm ${primary} tại LEXA (không cần chọn nghề ngay)`,
       "Trao đổi kết quả với giáo viên, phụ huynh hoặc tư vấn hướng nghiệp",
-      "Khi đã có hướng rõ hơn, vào mục Lộ trình trên trang chủ để đặt mục tiêu nghề",
+      "Khi đã có hướng rõ hơn, xem mục Lộ trình trên trang chủ hoặc trang /roadmap",
     ],
   };
 }

@@ -22,7 +22,8 @@ export function AssessmentMethodologySection() {
             </p>
             <p>
               Bài test gồm <strong className="text-slate-900 dark:text-white">18 câu hỏi</strong> (3 câu cho mỗi nhóm R–I–A–S–E–C).
-              Mỗi câu có nhiều lựa chọn chi tiết; mỗi lựa chọn bạn chọn được cộng <strong className="text-slate-900 dark:text-white">+1 điểm</strong> cho nhóm tương ứng.
+              Mỗi câu có nhiều lựa chọn; mỗi lựa chọn sở thích được cộng <strong className="text-slate-900 dark:text-white">+1 điểm</strong> cho nhóm tương ứng.
+              Bạn có thể chọn &quot;chưa xác định&quot; — không cộng điểm.
               Sau đó hệ thống xác định <strong className="text-slate-900 dark:text-white">mã Holland</strong> từ 3 nhóm điểm cao nhất và gợi ý lĩnh vực, ngành học, nghề nghiệp phù hợp.
             </p>
             <p className="rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">

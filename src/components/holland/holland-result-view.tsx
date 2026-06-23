@@ -275,11 +275,11 @@ export function HollandResultView({ result, onReset }: HollandResultViewProps) {
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <ButtonLink href={`/library?riasec=${result.topGroups[0]?.code ?? "I"}`} className="flex-1 justify-center" size="lg">
-          Khám phá thư viện nghề
+        <ButtonLink href="/roadmap" className="flex-1 justify-center" size="lg">
+          Xem lộ trình nghề nghiệp
         </ButtonLink>
-        <ButtonLink href="/#phuong-phap-danh-gia" variant="secondary" className="flex-1 justify-center" size="lg">
-          Phương pháp đánh giá
+        <ButtonLink href={`/library?riasec=${result.topGroups[0]?.code ?? "I"}`} className="flex-1 justify-center" size="lg" variant="secondary">
+          Khám phá thư viện nghề
         </ButtonLink>
         <Button onClick={onReset} variant="secondary" size="lg">
           Làm lại

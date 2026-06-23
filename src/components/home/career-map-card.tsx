@@ -21,7 +21,7 @@ import { getHistorySummaryForAi } from "@/lib/user-history";
 
 const ROWS: { key: keyof CareerMapData; label: string }[] = [
   { key: "traits", label: "Tố chất" },
-  { key: "style", label: "Phong cách" },
+  { key: "style", label: "Hoạt động người dùng" },
   { key: "goal", label: "Mục tiêu" },
 ];
 

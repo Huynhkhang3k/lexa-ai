@@ -17,9 +17,11 @@ import { profileFromTestSnapshot, saveUserProfile } from "@/lib/user-profile";
 import {
   HOLLAND_QUESTIONS,
   HOLLAND_QUESTION_COUNT,
+  HOLLAND_UNDETERMINED_LABEL,
   type HollandQuestion,
 } from "@/lib/holland-questions";
 import type { HollandAnswer, HollandResult } from "@/lib/holland-scoring";
+import { buildHollandRoadmap } from "@/lib/holland-roadmap";
 import { getRiasecType } from "@/lib/holland-riasec";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,7 @@ export default function TestPage() {
   const [step, setStep] = React.useState(0);
   const [answers, setAnswers] = React.useState<HollandAnswer[]>([]);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [undetermined, setUndetermined] = React.useState(false);
   const [loadingResult, setLoadingResult] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<HollandResult | null>(null);
@@ -41,10 +44,12 @@ export default function TestPage() {
   React.useEffect(() => {
     if (!current || done) return;
     const prev = answers.find((a) => a.questionId === current.id);
-    setSelected(new Set(prev?.selectedOptionIds ?? []));
+    setSelected(new Set(prev?.undetermined ? [] : (prev?.selectedOptionIds ?? [])));
+    setUndetermined(Boolean(prev?.undetermined));
   }, [step, current?.id, done, answers]);
 
   function toggleOption(id: string) {
+    setUndetermined(false);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -53,17 +58,26 @@ export default function TestPage() {
     });
   }
 
+  function toggleUndetermined() {
+    setUndetermined((prev) => {
+      const next = !prev;
+      if (next) setSelected(new Set());
+      return next;
+    });
+  }
+
   async function submitQuestion() {
     if (!current || !gradeLevel) return;
-    if (selected.size === 0) {
-      setError("Hãy chọn ít nhất một ý bạn cảm thấy đúng.");
+    if (!undetermined && selected.size === 0) {
+      setError("Hãy chọn ít nhất một ý phù hợp, hoặc chọn \"chưa xác định\".");
       return;
     }
 
     setError(null);
     const entry: HollandAnswer = {
       questionId: current.id,
-      selectedOptionIds: [...selected],
+      selectedOptionIds: undetermined ? [] : [...selected],
+      undetermined,
     };
 
     const nextAnswers = [...answers.filter((a) => a.questionId !== current.id), entry];
@@ -90,6 +104,9 @@ export default function TestPage() {
           nextSteps: data.nextSteps ?? [],
           answers: nextAnswers.map((a) => {
             const q = HOLLAND_QUESTIONS.find((x) => x.id === a.questionId);
+            if (a.undetermined) {
+              return { question: q?.title ?? a.questionId, answer: HOLLAND_UNDETERMINED_LABEL };
+            }
             const labels = q?.options
               .filter((o) => a.selectedOptionIds.includes(o.id))
               .map((o) => o.label)
@@ -154,6 +171,10 @@ export default function TestPage() {
             ),
             completedAt: new Date().toISOString(),
           },
+          targetCareer: data.careers?.[0]
+            ? { id: data.careers[0].id, name: data.careers[0].name }
+            : undefined,
+          roadmap: buildHollandRoadmap(data as HollandResult, gradeLevel),
         });
 
         appendTestAttempt({
@@ -194,6 +215,7 @@ export default function TestPage() {
     setStep(0);
     setAnswers([]);
     setSelected(new Set());
+    setUndetermined(false);
     setResult(null);
     setError(null);
   }
@@ -215,7 +237,7 @@ export default function TestPage() {
             Chọn khối lớp để bắt đầu
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-            Bài test Holland RIASEC — 18 câu chuẩn, mỗi câu 6 lựa chọn, chọn nhiều đáp án.
+            Bài test Holland RIASEC — 18 câu, chọn nhiều đáp án hoặc &quot;chưa xác định&quot; nếu chưa chắc.
           </p>
           <Button className="mt-6" onClick={() => openPicker()}>
             Chọn khối lớp
@@ -330,8 +352,10 @@ export default function TestPage() {
                         key={opt.id}
                         type="button"
                         onClick={() => toggleOption(opt.id)}
+                        disabled={undetermined}
                         className={cn(
                           "flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition",
+                          undetermined && "opacity-45",
                           on
                             ? "border-sky-400 bg-sky-50 dark:border-cyan-400/50 dark:bg-cyan-400/10"
                             : "border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5",
@@ -351,6 +375,31 @@ export default function TestPage() {
                       </button>
                     );
                   })}
+
+                  <div className="my-1 border-t border-dashed border-slate-200 dark:border-white/10" />
+
+                  <button
+                    type="button"
+                    onClick={toggleUndetermined}
+                    className={cn(
+                      "flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition",
+                      undetermined
+                        ? "border-amber-400 bg-amber-50 dark:border-amber-400/50 dark:bg-amber-400/10"
+                        : "border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
+                        undetermined
+                          ? "border-amber-500 bg-amber-500 text-white"
+                          : "border-slate-300 dark:border-white/25",
+                      )}
+                    >
+                      {undetermined ? <Check className="h-3.5 w-3.5" /> : null}
+                    </span>
+                    <span className="text-slate-800 dark:text-white/90">{HOLLAND_UNDETERMINED_LABEL}</span>
+                  </button>
                 </CardContent>
               </Card>
 
@@ -359,7 +408,7 @@ export default function TestPage() {
                   <ArrowLeft className="h-4 w-4" />
                   Quay lại
                 </Button>
-                <Button onClick={submitQuestion} disabled={selected.size === 0}>
+                <Button onClick={submitQuestion} disabled={!undetermined && selected.size === 0}>
                   {step + 1 >= HOLLAND_QUESTION_COUNT ? "Xem kết quả Holland" : "Câu tiếp theo"}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
